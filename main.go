@@ -24,7 +24,7 @@ import (
 // Debugging HTTP Client requests with Go · Jamie Tanna | Software Engineer
 // https://www.jvt.me/posts/2023/03/11/go-debug-http/
 type CustomTransport struct {
-	// 既存のhttp.Transportを埋め込む
+	// Embed default transport
 	*http.Transport
 }
 
@@ -133,8 +133,6 @@ func main() {
 	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *paramsPrettyHttpMessage)
 
 	for i := 0; i < *paramsLoopCount; i++ {
-		//"https://httpbin.org/post"
-		// {"name":"taro", "age":20}
 		_, _ = DoHttpRequest(ctx, client, *paramsHttpMethod, *paramsTargetUrl, httpHeaderContentTypeJson, *paramsRequestBody)
 
 		//resp, err := DoHttpRequest(ctx, client, *paramsHttpMethod, *paramsTargetUrl, httpHeaderContentTypeJson, *paramsRequestBody)
