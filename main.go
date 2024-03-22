@@ -56,7 +56,7 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	fmt.Printf("Req. %s%s%s%s", time.Now().Format(TimeFormat), adjustMessage("\n"), adjustMessage(string(httpMessageBytes)), adjustMessage("\n"))
 	resp, err := s.Transport.RoundTrip(r)
 	respBytes, _ := httputil.DumpResponse(resp, true)
-	fmt.Printf("Res. %s %s\n", time.Now().Format(TimeFormat), adjustMessage(string(respBytes)))
+	fmt.Printf("Res. %s%s%s\n", time.Now().Format(TimeFormat), adjustMessage("\n"), adjustMessage(string(respBytes)))
 
 	return resp, err
 }
