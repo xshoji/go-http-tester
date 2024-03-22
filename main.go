@@ -21,6 +21,13 @@ import (
 	"time"
 )
 
+const (
+	DummyUsage              = "########"
+	HttpContentTypeHeader   = "Content-Type"
+	ContextKeyPrettyHttpLog = "ContextKeyLoggingPrettyHttpLog"
+	TimeFormat              = "2006-01-02 15:04:05.9999 [MST]"
+)
+
 // Debugging HTTP Client requests with Go · Jamie Tanna | Software Engineer
 // https://www.jvt.me/posts/2023/03/11/go-debug-http/
 type CustomTransport struct {
@@ -46,30 +53,26 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		},
 	}))
 
-	fmt.Printf("%s%s", adjustMessage(string(httpMessageBytes)), adjustMessage("\n"))
-	resp, err := http.DefaultTransport.RoundTrip(r)
+	fmt.Printf("Req. %s %s%s", time.Now().Format(TimeFormat), adjustMessage(string(httpMessageBytes)), adjustMessage("\n"))
+	resp, err := s.Transport.RoundTrip(r)
 	respBytes, _ := httputil.DumpResponse(resp, true)
-	fmt.Printf("%s\n", adjustMessage(string(respBytes)))
+	fmt.Printf("Res. %s %s\n", time.Now().Format(TimeFormat), adjustMessage(string(respBytes)))
 
 	return resp, err
 }
 
-const (
-	DummyUsage              = "########"
-	HttpContentTypeHeader   = "Content-Type"
-	ContextKeyPrettyHttpLog = "ContextKeyLoggingPrettyHttpLog"
-)
-
 var (
 	// Define short parameters ( this default value will be not used ).
-	paramsTargetUrl         = flag.String("t", "", DummyUsage)
-	paramsHttpMethod        = flag.String("m", "", DummyUsage)
-	paramsRequestBody       = flag.String("r", "", DummyUsage)
-	paramsHostHeader        = flag.String("hh", "", DummyUsage)
-	paramsLoopCount         = flag.Int("l", 0, DummyUsage)
-	paramsWaitMillSecond    = flag.Int("w", 0, DummyUsage)
-	paramsPrettyHttpMessage = flag.Bool("p", false, DummyUsage)
-	paramsHelp              = flag.Bool("h", false, DummyUsage)
+	paramsTargetUrl           = flag.String("t", "", DummyUsage)
+	paramsHttpMethod          = flag.String("m", "", DummyUsage)
+	paramsRequestBody         = flag.String("r", "", DummyUsage)
+	paramsHostHeader          = flag.String("hh", "", DummyUsage)
+	paramsUuidHeaderName      = flag.String("uh", "", DummyUsage)
+	paramsLoopCount           = flag.Int("l", 0, DummyUsage)
+	paramsWaitMillSecond      = flag.Int("w", 0, DummyUsage)
+	paramsPrettyHttpMessage   = flag.Bool("p", false, DummyUsage)
+	paramsSkipTlsVerification = flag.Bool("sk", false, DummyUsage)
+	paramsHelp                = flag.Bool("h", false, DummyUsage)
 
 	// HTTP Header templates
 	httpHeaderEmptyMap        = make(map[string]string, 0)
@@ -79,14 +82,16 @@ var (
 
 func init() {
 	// Define long parameters
-	flag.StringVar(paramsTargetUrl /*       */, "target-host" /*         */, "" /*     */, "[required] Target URL ( sample: https://www.****.**/***/*** )")
-	flag.StringVar(paramsHttpMethod /*      */, "m-http-method" /*       */, "GET" /*  */, "[optional] HTTP method")
-	flag.StringVar(paramsRequestBody /*     */, "request-body" /*        */, "" /*     */, "[optional] Request body")
-	flag.StringVar(paramsHostHeader /*      */, "host-header" /*         */, "" /*     */, "[optional] Host header")
-	flag.IntVar(paramsLoopCount /*          */, "loop-count" /*          */, 3 /*      */, "[optional] Loop count")
-	flag.IntVar(paramsWaitMillSecond /*     */, "wait-millisecond" /*    */, 1000 /*   */, "[optional] Wait millisecond")
-	flag.BoolVar(paramsPrettyHttpMessage /* */, "pretty-http-message" /* */, false /*  */, "[optional] Print pretty http message")
-	flag.BoolVar(paramsHelp /*              */, "help" /*                */, false /*  */, "help")
+	flag.StringVar(paramsTargetUrl /*            */, "target-host" /*           */, "" /*     */, "[required] Target URL ( sample: https://www.****.**/***/*** )")
+	flag.StringVar(paramsHttpMethod /*           */, "m-http-method" /*         */, "GET" /*  */, "[optional] HTTP method")
+	flag.StringVar(paramsRequestBody /*          */, "request-body" /*          */, "" /*     */, "[optional] Request body")
+	flag.StringVar(paramsHostHeader /*           */, "host-header" /*           */, "" /*     */, "[optional] Host header")
+	flag.StringVar(paramsUuidHeaderName /*       */, "uuid-header-name" /*      */, "" /*     */, "[optional] Header name for Uuid")
+	flag.IntVar(paramsLoopCount /*               */, "loop-count" /*            */, 3 /*      */, "[optional] Loop count")
+	flag.IntVar(paramsWaitMillSecond /*          */, "wait-millisecond" /*      */, 1000 /*   */, "[optional] Wait millisecond")
+	flag.BoolVar(paramsPrettyHttpMessage /*      */, "pretty-http-message" /*   */, false /*  */, "[optional] Print pretty http message")
+	flag.BoolVar(paramsSkipTlsVerification /*    */, "skip-tls-verification" /* */, false /*  */, "[optional] Skip tls verification")
+	flag.BoolVar(paramsHelp /*                   */, "help" /*                  */, false /*  */, "help")
 }
 
 func main() {
@@ -109,37 +114,44 @@ func main() {
 	}
 
 	// Set SSLKEYLOGFILE file path
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: *paramsSkipTlsVerification,
+	}
 	sslKeyLogFile := os.Getenv("SSLKEYLOGFILE")
-	if sslKeyLogFile == "" {
-		sslKeyLogFile = os.TempDir() + "/ssl_key_log_file_" + createUuid()
+	if sslKeyLogFile != "" {
+		w, err := os.OpenFile(sslKeyLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		handleError(err)
+		defer w.Close()
+		tlsConfig.KeyLogWriter = w
 	}
 
 	client := http.Client{
-		Transport: CreateCustomTransport(sslKeyLogFile),
+		Transport: CreateCustomTransport(tlsConfig),
 	}
 
 	fmt.Println("#--------------------")
 	fmt.Println("# Command information")
 	fmt.Println("#--------------------")
-	fmt.Printf("Target URL      : %s\n", *paramsTargetUrl)
-	fmt.Printf("HTTP Method     : %s\n", *paramsHttpMethod)
-	fmt.Printf("Request body    : %s\n", *paramsRequestBody)
-	fmt.Printf("Host header     : %s\n", *paramsHostHeader)
-	fmt.Printf("Loop count      : %d\n", *paramsLoopCount)
-	fmt.Printf("Wait millsecond : %d\n", *paramsWaitMillSecond)
-	fmt.Printf("SSLKEYLOGFILE   : %s\n", sslKeyLogFile)
+	fmt.Printf("Target URL            : %s\n", *paramsTargetUrl)
+	fmt.Printf("HTTP Method           : %s\n", *paramsHttpMethod)
+	fmt.Printf("Request body          : %s\n", *paramsRequestBody)
+	fmt.Printf("Host header           : %s\n", *paramsHostHeader)
+	fmt.Printf("Loop count            : %d\n", *paramsLoopCount)
+	fmt.Printf("Wait millsecond       : %d\n", *paramsWaitMillSecond)
+	fmt.Printf("Uuid header name      : %s\n", *paramsUuidHeaderName)
+	fmt.Printf("Skip Tls Verification : %t\n", *paramsSkipTlsVerification)
+	fmt.Printf("SSLKEYLOGFILE         : %s\n", sslKeyLogFile)
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *paramsPrettyHttpMessage)
 
+	headers := httpHeaderEmptyMap
+	if *paramsUuidHeaderName != "" {
+		headers[*paramsUuidHeaderName] = createUuid()
+	}
+
 	for i := 0; i < *paramsLoopCount; i++ {
-		_, _ = DoHttpRequest(ctx, client, *paramsHttpMethod, *paramsTargetUrl, httpHeaderContentTypeJson, *paramsRequestBody)
-
-		//resp, err := DoHttpRequest(ctx, client, *paramsHttpMethod, *paramsTargetUrl, httpHeaderContentTypeJson, *paramsRequestBody)
-		//body := handleResponse(resp, err)
-		//jsonBody := ToJsonObject(body)
-		//fmt.Printf("headers.X-Amzn-Trace-Id => %v\n", Get(jsonBody, "headers.X-Amzn-Trace-Id"))
-
+		_, _ = DoHttpRequest(ctx, client, *paramsHttpMethod, *paramsTargetUrl, headers, *paramsRequestBody)
 		time.Sleep(time.Duration(*paramsWaitMillSecond) * time.Millisecond)
 	}
 }
@@ -148,19 +160,19 @@ func main() {
 // HTTP Utils
 // =======================================
 
-func CreateCustomTransport(sslKeyLogFile string) *CustomTransport {
+func CreateCustomTransport(tlsConfig *tls.Config) *CustomTransport {
 	customTr := &CustomTransport{Transport: http.DefaultTransport.(*http.Transport).Clone()}
-	f, err := os.OpenFile(sslKeyLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	handleError(err)
-	defer f.Close()
-	customTr.TLSClientConfig = &tls.Config{
-		KeyLogWriter: f,
+	if tlsConfig != nil {
+		customTr.TLSClientConfig = tlsConfig
 	}
 	return customTr
 }
 
 func DoHttpRequest(ctx context.Context, client http.Client, method string, url string, headers map[string]string, body string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(body))
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
 	handleError(err)
 	return client.Do(req)
 }
@@ -236,7 +248,7 @@ func ToJsonString(v interface{}) string {
 func createUuid() string {
 	seed := strconv.FormatInt(time.Now().UnixNano(), 10)
 	shaBytes := sha256.Sum256([]byte(seed))
-	return hex.EncodeToString(shaBytes[:])
+	return hex.EncodeToString(shaBytes[:16])
 }
 
 func handleError(err error) {
