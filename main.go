@@ -21,13 +21,12 @@ import (
 )
 
 const (
-	UsageDummy                 = "########"
-	UsageRequiredPrefix        = "[required] "
-	UsageParamNameWidth        = "15"
-	HttpContentTypeHeader      = "Content-Type"
-	ContextKeyPrettyHttpLog    = "ContextKeyLoggingPrettyHttpLog"
-	ContextKeyNoOutputResponse = "ContextKeyNoOutputResponse"
-	TimeFormat                 = "2006-01-02 15:04:05.9999 [MST]"
+	UsageDummy                   = "########"
+	UsageRequiredPrefix          = "[Required] "
+	HttpContentTypeHeader        = "Content-Type"
+	ContextKeyPrettyHttpLog      = "ContextKeyLoggingPrettyHttpLog"
+	ContextKeyNoReadResponseBody = "ContextKeyNoReadResponseBody"
+	TimeFormat                   = "2006-01-02 15:04:05.9999 [MST]"
 )
 
 var (
@@ -40,7 +39,7 @@ var (
 	paramsLoopCount           = flag.Int("l", 0, UsageDummy)
 	paramsWaitMillSecond      = flag.Int("w", 0, UsageDummy)
 	paramsPrettyHttpMessage   = flag.Bool("p", false, UsageDummy)
-	paramsNoOutputResponse    = flag.Bool("n", false, UsageDummy)
+	paramsNoReadResponseBody  = flag.Bool("n", false, UsageDummy)
 	paramsSkipTlsVerification = flag.Bool("sk", false, UsageDummy)
 	paramsHelp                = flag.Bool("h", false, UsageDummy)
 
@@ -52,33 +51,22 @@ var (
 
 func init() {
 	// Define long parameters
-	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*           */, "" /*     */, "[Required] Target URL ( sample: https://www.****.**/***/*** )")
-	flag.StringVar(paramsHttpMethod /*        */, "method" /*                */, "GET" /*  */, "HTTP method")
-	flag.StringVar(paramsBody /*              */, "body" /*                  */, "" /*     */, "Request body")
-	flag.StringVar(paramsHostHeader /*        */, "host-header" /*           */, "" /*     */, "Host header")
-	flag.StringVar(paramsUuidHeaderName /*    */, "uuid-header-name" /*      */, "" /*     */, "Header name for Uuid")
-	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*            */, 3 /*      */, "Loop count")
-	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*      */, 1000 /*   */, "Wait millisecond")
-	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*   */, false /*  */, "Print pretty http message")
-	flag.BoolVar(paramsNoOutputResponse /*    */, "no-response-output" /*    */, false /*  */, "Don't output response")
-	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /* */, false /*  */, "Skip tls verification")
-	flag.BoolVar(paramsHelp /*                */, "help" /*                  */, false /*  */, "Show help")
+	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*            */, "" /*     */, UsageRequiredPrefix+"Target URL ( sample: https://www.****.**/***/*** )")
+	flag.StringVar(paramsHttpMethod /*        */, "method" /*                 */, "GET" /*  */, "HTTP method")
+	flag.StringVar(paramsBody /*              */, "body" /*                   */, "" /*     */, "Request body")
+	flag.StringVar(paramsHostHeader /*        */, "host-header" /*            */, "" /*     */, "Host header")
+	flag.StringVar(paramsUuidHeaderName /*    */, "uuid-header-name" /*       */, "" /*     */, "Header name for uuid in the request")
+	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*      */, "Loop count")
+	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*   */, "Wait millisecond")
+	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*  */, "Print pretty http message")
+	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*  */, "Don't read response body")
+	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*  */, "Skip tls verification")
+	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*  */, "Show help")
 
 	adjustUsage()
 }
 
 func main() {
-
-	// Set adjusted usage
-	//b := new(bytes.Buffer)
-	//flag.CommandLine.SetOutput(b)
-	//flag.Usage()
-	//re := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + "\n*\\s+(-\\S+)( *\\S*)+\n")
-	//usage := re.ReplaceAllString(b.String(), "  $1, -$3$4\n")
-	//flag.CommandLine.SetOutput(os.Stderr)
-	//flag.Usage = func() {
-	//	_, _ = fmt.Fprintf(flag.CommandLine.Output(), usage)
-	//}
 
 	flag.Parse()
 	if *paramsHelp || *paramsTargetUrl == "" {
@@ -113,12 +101,12 @@ func main() {
 	fmt.Printf("Wait millsecond       : %d\n", *paramsWaitMillSecond)
 	fmt.Printf("Uuid header name      : %s\n", *paramsUuidHeaderName)
 	fmt.Printf("Skip Tls Verification : %t\n", *paramsSkipTlsVerification)
-	fmt.Printf("No output response    : %t\n", *paramsNoOutputResponse)
+	fmt.Printf("No read response body : %t\n", *paramsNoReadResponseBody)
 	fmt.Printf("SSLKEYLOGFILE         : %s\n", sslKeyLogFile)
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *paramsPrettyHttpMessage)
-	ctx = context.WithValue(ctx, ContextKeyNoOutputResponse, *paramsNoOutputResponse)
+	ctx = context.WithValue(ctx, ContextKeyNoReadResponseBody, *paramsNoReadResponseBody)
 
 	headers := httpHeaderEmptyMap
 	if *paramsUuidHeaderName != "" {
@@ -165,7 +153,7 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	resp, err := s.Transport.RoundTrip(r)
 	handleError(err, "s.Transport.RoundTrip(r)")
 	respBytes := make([]byte, 0)
-	if !r.Context().Value(ContextKeyNoOutputResponse).(bool) {
+	if !r.Context().Value(ContextKeyNoReadResponseBody).(bool) {
 		respBytes, err = httputil.DumpResponse(resp, true)
 	}
 	handleError(err, "httputil.DumpResponse(resp, true)")
@@ -271,18 +259,15 @@ func adjustUsage() {
 	flag.Usage()
 	flag.CommandLine.SetOutput(os.Stderr)
 	// Sort params and description ( order by UsageRequiredPrefix )
-	regex := "(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + "\n*\\s+(-\\S+)( *\\S*)+\n\\s+(.+)"
-	re := regexp.MustCompile(regex)
+	re := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + "\n*\\s+(-\\S+)( *\\S*)+\n\\s+(.+)")
 	usageParams := re.FindAllString(b.String(), -1)
 	sort.Slice(usageParams, func(i, j int) bool {
 		isRequired1 := strings.Index(usageParams[i], UsageRequiredPrefix) >= 0
 		isRequired2 := strings.Index(usageParams[j], UsageRequiredPrefix) >= 0
 		if isRequired1 && isRequired2 {
 			return strings.Compare(usageParams[i], usageParams[j]) == -1
-		} else if isRequired1 {
-			return true
 		} else {
-			return false
+			return isRequired1
 		}
 	})
 	// Calculate max param name
