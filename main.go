@@ -52,7 +52,7 @@ var (
 
 func init() {
 	// Define long parameters
-	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*            */, "" /*     */, UsageRequiredPrefix+"Target URL ( sample: https://www.****.**/***/*** )")
+	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*            */, "" /*     */, UsageRequiredPrefix+"Target URL (sample https://****.***/***/*** )")
 	flag.StringVar(paramsHttpMethod /*        */, "method" /*                 */, "GET" /*  */, "HTTP method")
 	flag.StringVar(paramsBody /*              */, "body" /*                   */, "" /*     */, "Request body")
 	flag.StringVar(paramsHostHeader /*        */, "host-header" /*            */, "" /*     */, "Host header")
@@ -60,7 +60,7 @@ func init() {
 	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*      */, "Loop count")
 	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*   */, "Wait millisecond")
 	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*  */, "Print pretty http message")
-	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*  */, "Don't read response body ( * If this option is enabled, http connection will be not reused between requests )")
+	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*  */, "Don't read response body (If this is enabled, http connection will be not reused between each request)")
 	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*  */, "Skip tls verification")
 	flag.BoolVar(paramsDisableHttp2 /*        */, "disable-http2" /*          */, false /*  */, "Disable HTTP/2")
 	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*  */, "Show help")
