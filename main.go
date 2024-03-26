@@ -22,7 +22,7 @@ import (
 
 const (
 	UsageDummy                   = "########"
-	UsageRequiredPrefix          = "[Required] "
+	UsageRequiredPrefix          = "\u001B[33m[Required]\u001B[0m "
 	HttpContentTypeHeader        = "Content-Type"
 	ContextKeyPrettyHttpLog      = "ContextKeyLoggingPrettyHttpLog"
 	ContextKeyNoReadResponseBody = "ContextKeyNoReadResponseBody"
@@ -41,6 +41,7 @@ var (
 	paramsPrettyHttpMessage   = flag.Bool("p", false, UsageDummy)
 	paramsNoReadResponseBody  = flag.Bool("n", false, UsageDummy)
 	paramsSkipTlsVerification = flag.Bool("sk", false, UsageDummy)
+	paramsDisableHttp2        = flag.Bool("d2", false, UsageDummy)
 	paramsHelp                = flag.Bool("h", false, UsageDummy)
 
 	// HTTP Header templates
@@ -59,8 +60,9 @@ func init() {
 	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*      */, "Loop count")
 	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*   */, "Wait millisecond")
 	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*  */, "Print pretty http message")
-	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*  */, "Don't read response body")
+	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*  */, "Don't read response body ( * If this option is enabled, http connection will be not reused between requests )")
 	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*  */, "Skip tls verification")
+	flag.BoolVar(paramsDisableHttp2 /*        */, "disable-http2" /*          */, false /*  */, "Disable HTTP/2")
 	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*  */, "Show help")
 
 	adjustUsage()
@@ -87,21 +89,22 @@ func main() {
 	}
 
 	client := http.Client{
-		Transport: CreateCustomTransport(tlsConfig),
+		Transport: CreateCustomTransport(tlsConfig, *paramsDisableHttp2),
 	}
 
 	fmt.Println("#--------------------")
 	fmt.Println("# Command information")
 	fmt.Println("#--------------------")
 	fmt.Printf("Target URL            : %s\n", *paramsTargetUrl)
-	fmt.Printf("HTTP Method           : %s\n", *paramsHttpMethod)
+	fmt.Printf("HTTP method           : %s\n", *paramsHttpMethod)
 	fmt.Printf("Request body          : %s\n", *paramsBody)
 	fmt.Printf("Host header           : %s\n", *paramsHostHeader)
 	fmt.Printf("Loop count            : %d\n", *paramsLoopCount)
 	fmt.Printf("Wait millsecond       : %d\n", *paramsWaitMillSecond)
 	fmt.Printf("Uuid header name      : %s\n", *paramsUuidHeaderName)
-	fmt.Printf("Skip Tls Verification : %t\n", *paramsSkipTlsVerification)
+	fmt.Printf("Skip tls Verification : %t\n", *paramsSkipTlsVerification)
 	fmt.Printf("No read response body : %t\n", *paramsNoReadResponseBody)
+	fmt.Printf("Disable HTTP/2        : %t\n", *paramsDisableHttp2)
 	fmt.Printf("SSLKEYLOGFILE         : %s\n", sslKeyLogFile)
 
 	ctx := context.Background()
@@ -152,20 +155,23 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	fmt.Printf("Req. %s%s", time.Now().Format(TimeFormat), adjustMessage("\n"+string(httpMessageBytes)+"\n"))
 	resp, err := s.Transport.RoundTrip(r)
 	handleError(err, "s.Transport.RoundTrip(r)")
-	respBytes := make([]byte, 0)
-	if !r.Context().Value(ContextKeyNoReadResponseBody).(bool) {
-		respBytes, err = httputil.DumpResponse(resp, true)
-	}
+	// Goのnet/httpのkeep-aliveで気をつけること - Carpe Diem: https://christina04.hatenablog.com/entry/go-keep-alive
+	respBytes, err := httputil.DumpResponse(resp, !r.Context().Value(ContextKeyNoReadResponseBody).(bool))
 	handleError(err, "httputil.DumpResponse(resp, true)")
 	fmt.Printf("Res. %s%s\n", time.Now().Format(TimeFormat), adjustMessage("\n"+string(respBytes)))
 
 	return resp, err
 }
 
-func CreateCustomTransport(tlsConfig *tls.Config) *CustomTransport {
+func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool) *CustomTransport {
 	customTr := &CustomTransport{Transport: http.DefaultTransport.(*http.Transport).Clone()}
 	if tlsConfig != nil {
 		customTr.TLSClientConfig = tlsConfig
+	}
+	if disableHttp2 {
+		// hdr-HTTP_2 - http package - net/http - Go Packages: https://pkg.go.dev/net/http#hdr-HTTP_2
+		// disable HTTP/2 can do so by setting [Transport.TLSNextProto] (for clients) or [Server.TLSNextProto] (for servers) to a non-nil, empty map.
+		customTr.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 	}
 	return customTr
 }
