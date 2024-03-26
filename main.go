@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
@@ -40,7 +41,7 @@ var (
 	paramsWaitMillSecond      = flag.Int("w", 0, UsageDummy)
 	paramsPrettyHttpMessage   = flag.Bool("p", false, UsageDummy)
 	paramsNoReadResponseBody  = flag.Bool("n", false, UsageDummy)
-	paramsSkipTlsVerification = flag.Bool("sk", false, UsageDummy)
+	paramsSkipTlsVerification = flag.Bool("s", false, UsageDummy)
 	paramsDisableHttp2        = flag.Bool("d2", false, UsageDummy)
 	paramsHelp                = flag.Bool("h", false, UsageDummy)
 
@@ -126,8 +127,7 @@ func main() {
 // HTTP Utils
 // =======================================
 
-// Debugging HTTP Client requests with Go · Jamie Tanna | Software Engineer
-// https://www.jvt.me/posts/2023/03/11/go-debug-http/
+// CustomTransport Debugging HTTP Client requests with Go: https://www.jvt.me/posts/2023/03/11/go-debug-http/
 type CustomTransport struct {
 	// Embed default transport
 	*http.Transport
@@ -199,10 +199,9 @@ func ToJsonObject(body []byte) interface{} {
 
 // Get get value in interface{} object [ example : object["aaa"][0]["bbb"] -> keyChain: "aaa.0.bbb" ]
 func Get(object interface{}, keyChain string) interface{} {
-	keys := strings.Split(keyChain, ".")
 	var result interface{}
 	var exists bool
-	for _, key := range keys {
+	for _, key := range strings.Split(keyChain, ".") {
 		exists = false
 		if _, ok := object.(map[string]interface{}); ok {
 			exists = true
@@ -267,7 +266,10 @@ func adjustUsage() {
 	// Sort params and description ( order by UsageRequiredPrefix )
 	re := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + "\n*\\s+(-\\S+)( *\\S*)+\n\\s+(.+)")
 	usageParams := re.FindAllString(b.String(), -1)
+	maxLengthParam := 0.0
 	sort.Slice(usageParams, func(i, j int) bool {
+		maxLengthParam = math.Max(maxLengthParam, float64(len(re.ReplaceAllString(usageParams[i], "$1, -$3$4"))))
+		maxLengthParam = math.Max(maxLengthParam, float64(len(re.ReplaceAllString(usageParams[j], "$1, -$3$4"))))
 		isRequired1 := strings.Index(usageParams[i], UsageRequiredPrefix) >= 0
 		isRequired2 := strings.Index(usageParams[j], UsageRequiredPrefix) >= 0
 		if isRequired1 && isRequired2 {
@@ -276,20 +278,10 @@ func adjustUsage() {
 			return isRequired1
 		}
 	})
-	// Calculate max param name
-	maxLengthParam := ""
-	for _, v := range usageParams {
-		paramName := re.ReplaceAllString(v, "$1, -$3$4")
-		if len(maxLengthParam) < len(paramName) {
-			maxLengthParam = paramName
-		}
-	}
 	// Adjust usage
 	usage := strings.Split(b.String(), "\n")[0] + "\n"
 	for _, v := range usageParams {
-		usage = usage + fmt.Sprintf("%-"+strconv.Itoa(len(maxLengthParam)+4)+"s", re.ReplaceAllString(v, "  $1, -$3$4")) + re.ReplaceAllString(v, "$5\n")
+		usage = usage + fmt.Sprintf("%-"+strconv.Itoa(int(maxLengthParam+4.0))+"s", re.ReplaceAllString(v, "  $1, -$3$4")) + re.ReplaceAllString(v, "$5\n")
 	}
-	flag.Usage = func() {
-		_, _ = fmt.Fprintf(flag.CommandLine.Output(), usage)
-	}
+	flag.Usage = func() { _, _ = fmt.Fprintf(flag.CommandLine.Output(), usage) }
 }
