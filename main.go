@@ -38,11 +38,11 @@ var (
 	paramsBody                = flag.String("b", "", UsageDummy)
 	paramsHostHeader          = flag.String("hh", "", UsageDummy)
 	paramsUuidHeaderName      = flag.String("uh", "", UsageDummy)
-	paramsNetworkType         = flag.String("nt", "", UsageDummy)
+	paramsNetworkType         = flag.String("ne", "", UsageDummy)
 	paramsLoopCount           = flag.Int("l", 0, UsageDummy)
 	paramsWaitMillSecond      = flag.Int("w", 0, UsageDummy)
 	paramsPrettyHttpMessage   = flag.Bool("p", false, UsageDummy)
-	paramsNoReadResponseBody  = flag.Bool("n", false, UsageDummy)
+	paramsNoReadResponseBody  = flag.Bool("no", false, UsageDummy)
 	paramsSkipTlsVerification = flag.Bool("s", false, UsageDummy)
 	paramsDisableHttp2        = flag.Bool("d2", false, UsageDummy)
 	paramsHelp                = flag.Bool("h", false, UsageDummy)
@@ -282,7 +282,7 @@ func adjustUsage() {
 		maxLengthParam = math.Max(maxLengthParam, float64(len(re.ReplaceAllString(usageParams[j], "$1, -$3$4"))))
 		isRequired1 := strings.Index(usageParams[i], UsageRequiredPrefix) >= 0
 		isRequired2 := strings.Index(usageParams[j], UsageRequiredPrefix) >= 0
-		if isRequired1 && isRequired2 {
+		if isRequired1 == isRequired2 {
 			return strings.Compare(usageParams[i], usageParams[j]) == -1
 		} else {
 			return isRequired1
