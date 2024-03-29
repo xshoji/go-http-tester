@@ -38,13 +38,13 @@ var (
 	paramsBody                = flag.String("b", "", UsageDummy)
 	paramsHostHeader          = flag.String("hh", "", UsageDummy)
 	paramsUuidHeaderName      = flag.String("uh", "", UsageDummy)
+	paramsNetworkType         = flag.String("nt", "", UsageDummy)
 	paramsLoopCount           = flag.Int("l", 0, UsageDummy)
 	paramsWaitMillSecond      = flag.Int("w", 0, UsageDummy)
 	paramsPrettyHttpMessage   = flag.Bool("p", false, UsageDummy)
 	paramsNoReadResponseBody  = flag.Bool("n", false, UsageDummy)
 	paramsSkipTlsVerification = flag.Bool("s", false, UsageDummy)
 	paramsDisableHttp2        = flag.Bool("d2", false, UsageDummy)
-	paramsAllowIpv6           = flag.Bool("a6", false, UsageDummy)
 	paramsHelp                = flag.Bool("h", false, UsageDummy)
 
 	// HTTP Header templates
@@ -55,19 +55,19 @@ var (
 
 func init() {
 	// Define long parameters
-	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*            */, "" /*     */, UsageRequiredPrefix+"Target URL (sample https://****.***/***/*** )")
-	flag.StringVar(paramsHttpMethod /*        */, "method" /*                 */, "GET" /*  */, "HTTP method")
-	flag.StringVar(paramsBody /*              */, "body" /*                   */, "" /*     */, "Request body")
-	flag.StringVar(paramsHostHeader /*        */, "host-header" /*            */, "" /*     */, "Host header")
-	flag.StringVar(paramsUuidHeaderName /*    */, "uuid-header-name" /*       */, "" /*     */, "Header name for uuid in the request")
-	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*      */, "Loop count")
-	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*   */, "Wait millisecond")
-	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*  */, "Print pretty http message")
-	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*  */, "Don't read response body (If this is enabled, http connection will be not reused between each request)")
-	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*  */, "Skip tls verification")
-	flag.BoolVar(paramsDisableHttp2 /*        */, "disable-http2" /*          */, false /*  */, "Disable HTTP/2")
-	flag.BoolVar(paramsAllowIpv6 /*           */, "allow-ipv6" /*             */, false /*  */, "Allow IPv6 (default: IPv4 only)")
-	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*  */, "Show help")
+	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*            */, "" /*      */, UsageRequiredPrefix+"Target URL (sample https://****.***/***/*** )")
+	flag.StringVar(paramsHttpMethod /*        */, "method" /*                 */, "GET" /*   */, "HTTP method")
+	flag.StringVar(paramsBody /*              */, "body" /*                   */, "" /*      */, "Request body")
+	flag.StringVar(paramsHostHeader /*        */, "host-header" /*            */, "" /*      */, "Host header")
+	flag.StringVar(paramsUuidHeaderName /*    */, "uuid-header-name" /*       */, "" /*      */, "Header name for uuid in the request")
+	flag.StringVar(paramsNetworkType /*       */, "network-type" /*          */, "tcp4" /*  */, "Network type [ values: \"tcp4\", \"ipv6\" ]")
+	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*       */, "Loop count")
+	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*    */, "Wait millisecond")
+	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*   */, "Print pretty http message")
+	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*   */, "Don't read response body (If this is enabled, http connection will be not reused between each request)")
+	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*   */, "Skip tls verification")
+	flag.BoolVar(paramsDisableHttp2 /*        */, "disable-http2" /*          */, false /*   */, "Disable HTTP/2")
+	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*   */, "Show help")
 
 	adjustUsage()
 }
@@ -93,7 +93,7 @@ func main() {
 	}
 
 	client := http.Client{
-		Transport: CreateCustomTransport(tlsConfig, *paramsDisableHttp2, *paramsAllowIpv6),
+		Transport: CreateCustomTransport(tlsConfig, *paramsDisableHttp2, *paramsNetworkType),
 	}
 
 	fmt.Println("#--------------------")
@@ -169,7 +169,7 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 // CreateCustomTransport
 // [golang custom http client] #go #golang #http #client #timeouts #dns #resolver
 // https://gist.github.com/Integralist/8a9cb8924f75ae42487fd877b03360e2?permalink_comment_id=4863513
-func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool, allowIpv6 bool) *CustomTransport {
+func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool, networkType string) *CustomTransport {
 	customTr := &CustomTransport{Transport: http.DefaultTransport.(*http.Transport).Clone()}
 	if tlsConfig != nil {
 		customTr.TLSClientConfig = tlsConfig
@@ -179,11 +179,9 @@ func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool, allowIpv6 b
 		// disable HTTP/2 can do so by setting [Transport.TLSNextProto] (for clients) or [Server.TLSNextProto] (for servers) to a non-nil, empty map.
 		customTr.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 	}
-	if !allowIpv6 {
-		// Go http get force to use ipv4 - Stack Overflow : https://stackoverflow.com/questions/77718022/go-http-get-force-to-use-ipv4
-		customTr.DialContext = func(ctx context.Context, network string, addr string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, "tcp4", addr)
-		}
+	// Go http get force to use ipv4 - Stack Overflow : https://stackoverflow.com/questions/77718022/go-http-get-force-to-use-ipv4
+	customTr.DialContext = func(ctx context.Context, network string, addr string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, networkType, addr)
 	}
 	return customTr
 }
