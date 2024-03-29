@@ -60,7 +60,7 @@ func init() {
 	flag.StringVar(paramsBody /*              */, "body" /*                   */, "" /*      */, "Request body")
 	flag.StringVar(paramsHostHeader /*        */, "host-header" /*            */, "" /*      */, "Host header")
 	flag.StringVar(paramsUuidHeaderName /*    */, "uuid-header-name" /*       */, "" /*      */, "Header name for uuid in the request")
-	flag.StringVar(paramsNetworkType /*       */, "network-type" /*          */, "tcp4" /*  */, "Network type [ values: \"tcp4\", \"ipv6\" ]")
+	flag.StringVar(paramsNetworkType /*       */, "network-type" /*           */, "tcp4" /*  */, "Network type [ values: \"tcp4\", \"ipv6\" ]")
 	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*       */, "Loop count")
 	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*    */, "Wait millisecond")
 	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*   */, "Print pretty http message")
