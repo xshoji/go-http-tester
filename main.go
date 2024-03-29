@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
@@ -22,8 +23,8 @@ import (
 )
 
 const (
-	UsageDummy                   = "########"
 	UsageRequiredPrefix          = "\u001B[33m[Required]\u001B[0m "
+	UsageDummy                   = "########"
 	HttpContentTypeHeader        = "Content-Type"
 	ContextKeyPrettyHttpLog      = "ContextKeyLoggingPrettyHttpLog"
 	ContextKeyNoReadResponseBody = "ContextKeyNoReadResponseBody"
@@ -43,10 +44,11 @@ var (
 	paramsNoReadResponseBody  = flag.Bool("n", false, UsageDummy)
 	paramsSkipTlsVerification = flag.Bool("s", false, UsageDummy)
 	paramsDisableHttp2        = flag.Bool("d2", false, UsageDummy)
+	paramsAllowIpv6           = flag.Bool("a6", false, UsageDummy)
 	paramsHelp                = flag.Bool("h", false, UsageDummy)
 
 	// HTTP Header templates
-	httpHeaderEmptyMap        = make(map[string]string, 0)
+	httpHeaderEmptyMap        = make(map[string]string)
 	httpHeaderContentTypeForm = map[string]string{HttpContentTypeHeader: "application/x-www-form-urlencoded;charset=utf-8"}
 	httpHeaderContentTypeJson = map[string]string{HttpContentTypeHeader: "application/json;charset=utf-8"}
 )
@@ -64,6 +66,7 @@ func init() {
 	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*  */, "Don't read response body (If this is enabled, http connection will be not reused between each request)")
 	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*  */, "Skip tls verification")
 	flag.BoolVar(paramsDisableHttp2 /*        */, "disable-http2" /*          */, false /*  */, "Disable HTTP/2")
+	flag.BoolVar(paramsAllowIpv6 /*           */, "allow-ipv6" /*             */, false /*  */, "Allow IPv6 (default: IPv4 only)")
 	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*  */, "Show help")
 
 	adjustUsage()
@@ -90,7 +93,7 @@ func main() {
 	}
 
 	client := http.Client{
-		Transport: CreateCustomTransport(tlsConfig, *paramsDisableHttp2),
+		Transport: CreateCustomTransport(tlsConfig, *paramsDisableHttp2, *paramsAllowIpv6),
 	}
 
 	fmt.Println("#--------------------")
@@ -163,7 +166,10 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool) *CustomTransport {
+// CreateCustomTransport
+// [golang custom http client] #go #golang #http #client #timeouts #dns #resolver
+// https://gist.github.com/Integralist/8a9cb8924f75ae42487fd877b03360e2?permalink_comment_id=4863513
+func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool, allowIpv6 bool) *CustomTransport {
 	customTr := &CustomTransport{Transport: http.DefaultTransport.(*http.Transport).Clone()}
 	if tlsConfig != nil {
 		customTr.TLSClientConfig = tlsConfig
@@ -172,6 +178,12 @@ func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool) *CustomTran
 		// hdr-HTTP_2 - http package - net/http - Go Packages: https://pkg.go.dev/net/http#hdr-HTTP_2
 		// disable HTTP/2 can do so by setting [Transport.TLSNextProto] (for clients) or [Server.TLSNextProto] (for servers) to a non-nil, empty map.
 		customTr.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
+	}
+	if !allowIpv6 {
+		// Go http get force to use ipv4 - Stack Overflow : https://stackoverflow.com/questions/77718022/go-http-get-force-to-use-ipv4
+		customTr.DialContext = func(ctx context.Context, network string, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "tcp4", addr)
+		}
 	}
 	return customTr
 }
