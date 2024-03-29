@@ -291,7 +291,7 @@ func adjustUsage() {
 	// Adjust usage
 	usage := strings.Split(b.String(), "\n")[0] + "\n"
 	for _, v := range usageParams {
-		usage = usage + fmt.Sprintf("%-"+strconv.Itoa(int(maxLengthParam+4.0))+"s", re.ReplaceAllString(v, "  $1, -$3$4")) + re.ReplaceAllString(v, "$5\n")
+		usage = usage + fmt.Sprintf("  %-3s"+"%-"+strconv.Itoa(int(maxLengthParam))+"s", re.ReplaceAllString(v, "$1"), re.ReplaceAllString(v, ", -$3$4")) + re.ReplaceAllString(v, "$5\n")
 	}
 	flag.Usage = func() { _, _ = fmt.Fprintf(flag.CommandLine.Output(), usage) }
 }
