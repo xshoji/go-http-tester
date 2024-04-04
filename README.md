@@ -6,18 +6,23 @@ Http testing tool implemented by golang.
 
 ```
 $ ./go-http-tester
-Usage of ./go-http-tester:
-  -t , --target-host string       [Required] Target URL (sample https://****.***/***/*** )
-  -b , --body string              Request body
-  -d , --disable-http2            Disable HTTP/2
-  -h , --help                     Show help
-  -hh, --host-header string       Host header
-  -l , --loop-count int           Loop count (default 3)
+Usage of /tmp/go-http-tester:
+
+Description:
+  HTTP request/response testing tool.
+
+Options:
+  -t , --target-host string       [required] target url (sample https://****.***/***/*** )
+  -b , --body string              request body
+  -d , --disable-http2            disable HTTP/2
+  -h , --help                     show help
+  -ho, --host-header string       host header
+  -l , --loop-count int           loop count (default 3)
   -m , --method string            HTTP method (default "GET")
-  -n , --network-type string      Network type [ values: "tcp4", "tcp6" ] (default "tcp4")
-  -no, --no-read-response-body    Don't read response body (If this is enabled, http connection will be not reused between each request)
-  -p , --pretty-http-message      Print pretty http message
-  -s , --skip-tls-verification    Skip tls verification
-  -u , --uuid-header-name string  Header name for uuid in the request
-  -w , --wait-millisecond int     Wait millisecond (default 1000)
+  -n , --network-type string      network type [ values: "tcp4", "tcp6" ] (default "tcp4")
+  -no, --no-read-response-body    don't read response body (If this is enabled, http connection will be not reused between each request)
+  -p , --pretty-http-message      print pretty http message
+  -s , --skip-tls-verification    skip tls verification
+  -u , --uuid-header-name string  header name for uuid in the request
+  -w , --wait-millisecond int     wait millisecond (default 1000)
 ```

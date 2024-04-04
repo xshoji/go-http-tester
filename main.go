@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	UsageRequiredPrefix          = "\u001B[33m[Required]\u001B[0m "
+	UsageRequiredPrefix          = "\u001B[33m[required]\u001B[0m "
 	UsageDummy                   = "########"
 	HttpContentTypeHeader        = "Content-Type"
 	ContextKeyPrettyHttpLog      = "ContextKeyLoggingPrettyHttpLog"
@@ -36,7 +36,7 @@ var (
 	paramsTargetUrl           = flag.String("t", "", UsageDummy)
 	paramsHttpMethod          = flag.String("m", "", UsageDummy)
 	paramsBody                = flag.String("b", "", UsageDummy)
-	paramsHostHeader          = flag.String("hh", "", UsageDummy)
+	paramsHostHeader          = flag.String("ho", "", UsageDummy)
 	paramsUuidHeaderName      = flag.String("u", "", UsageDummy)
 	paramsNetworkType         = flag.String("n", "", UsageDummy)
 	paramsLoopCount           = flag.Int("l", 0, UsageDummy)
@@ -55,19 +55,19 @@ var (
 
 func init() {
 	// Define long parameters
-	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*            */, "" /*      */, UsageRequiredPrefix+"Target URL (sample https://****.***/***/*** )")
+	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*            */, "" /*      */, UsageRequiredPrefix+"target url (sample https://****.***/***/*** )")
 	flag.StringVar(paramsHttpMethod /*        */, "method" /*                 */, "GET" /*   */, "HTTP method")
-	flag.StringVar(paramsBody /*              */, "body" /*                   */, "" /*      */, "Request body")
-	flag.StringVar(paramsHostHeader /*        */, "host-header" /*            */, "" /*      */, "Host header")
-	flag.StringVar(paramsUuidHeaderName /*    */, "uuid-header-name" /*       */, "" /*      */, "Header name for uuid in the request")
-	flag.StringVar(paramsNetworkType /*       */, "network-type" /*           */, "tcp4" /*  */, "Network type [ values: \"tcp4\", \"tcp6\" ]")
-	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*       */, "Loop count")
-	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*    */, "Wait millisecond")
-	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*   */, "Print pretty http message")
-	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*   */, "Don't read response body (If this is enabled, http connection will be not reused between each request)")
-	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*   */, "Skip tls verification")
-	flag.BoolVar(paramsDisableHttp2 /*        */, "disable-http2" /*          */, false /*   */, "Disable HTTP/2")
-	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*   */, "Show help")
+	flag.StringVar(paramsBody /*              */, "body" /*                   */, "" /*      */, "request body")
+	flag.StringVar(paramsHostHeader /*        */, "host-header" /*            */, "" /*      */, "host header")
+	flag.StringVar(paramsUuidHeaderName /*    */, "uuid-header-name" /*       */, "" /*      */, "header name for uuid in the request")
+	flag.StringVar(paramsNetworkType /*       */, "network-type" /*           */, "tcp4" /*  */, "network type [ values: \"tcp4\", \"tcp6\" ]")
+	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*       */, "loop count")
+	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*    */, "wait millisecond")
+	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*   */, "print pretty http message")
+	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*   */, "don't read response body (If this is enabled, http connection will be not reused between each request)")
+	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*   */, "skip tls verification")
+	flag.BoolVar(paramsDisableHttp2 /*        */, "disable-http2" /*          */, false /*   */, "disable HTTP/2")
+	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*   */, "show help")
 
 	adjustUsage()
 }
@@ -80,35 +80,29 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Set SSLKEYLOGFILE file path
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: *paramsSkipTlsVerification,
-	}
 	sslKeyLogFile := os.Getenv("SSLKEYLOGFILE")
-	if sslKeyLogFile != "" {
-		w, err := os.OpenFile(sslKeyLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-		handleError(err, "SSLKEYLOGFILE os.OpenFile")
-		defer func() { handleError(w.Close(), "SSLKEYLOGFILE file w.Close()") }()
-		tlsConfig.KeyLogWriter = w
-	}
-
 	client := http.Client{
-		Transport: CreateCustomTransport(tlsConfig, *paramsDisableHttp2, *paramsNetworkType),
+		Transport: CreateCustomTransport(
+			CreateTlsConfig(*paramsSkipTlsVerification, sslKeyLogFile),
+			*paramsDisableHttp2,
+			*paramsNetworkType,
+		),
 	}
 
 	fmt.Println("#--------------------")
 	fmt.Println("# Command information")
 	fmt.Println("#--------------------")
-	fmt.Printf("Target URL            : %s\n", *paramsTargetUrl)
+	fmt.Printf("target url            : %s\n", *paramsTargetUrl)
 	fmt.Printf("HTTP method           : %s\n", *paramsHttpMethod)
-	fmt.Printf("Request body          : %s\n", *paramsBody)
-	fmt.Printf("Host header           : %s\n", *paramsHostHeader)
-	fmt.Printf("Loop count            : %d\n", *paramsLoopCount)
-	fmt.Printf("Wait millsecond       : %d\n", *paramsWaitMillSecond)
-	fmt.Printf("Uuid header name      : %s\n", *paramsUuidHeaderName)
-	fmt.Printf("Skip tls Verification : %t\n", *paramsSkipTlsVerification)
-	fmt.Printf("No read response body : %t\n", *paramsNoReadResponseBody)
-	fmt.Printf("Disable HTTP/2        : %t\n", *paramsDisableHttp2)
+	fmt.Printf("request body          : %s\n", *paramsBody)
+	fmt.Printf("host header           : %s\n", *paramsHostHeader)
+	fmt.Printf("loop count            : %d\n", *paramsLoopCount)
+	fmt.Printf("wait millsecond       : %d\n", *paramsWaitMillSecond)
+	fmt.Printf("uuid header name      : %s\n", *paramsUuidHeaderName)
+	fmt.Printf("skip tls Verification : %t\n", *paramsSkipTlsVerification)
+	fmt.Printf("network type          : %s\n", *paramsNetworkType)
+	fmt.Printf("no read response body : %t\n", *paramsNoReadResponseBody)
+	fmt.Printf("disable HTTP/2        : %t\n", *paramsDisableHttp2)
 	fmt.Printf("SSLKEYLOGFILE         : %s\n", sslKeyLogFile)
 
 	ctx := context.Background()
@@ -184,6 +178,20 @@ func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool, networkType
 		return (&net.Dialer{}).DialContext(ctx, networkType, addr)
 	}
 	return customTr
+}
+
+func CreateTlsConfig(skipTlsVerification bool, sslKeyLogFile string) *tls.Config {
+	// Set SSLKEYLOGFILE file path
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: skipTlsVerification,
+	}
+	if sslKeyLogFile != "" {
+		w, err := os.OpenFile(sslKeyLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		handleError(err, "SSLKEYLOGFILE os.OpenFile")
+		defer func() { handleError(w.Close(), "SSLKEYLOGFILE file w.Close()") }()
+		tlsConfig.KeyLogWriter = w
+	}
+	return tlsConfig
 }
 
 func DoHttpRequest(ctx context.Context, client http.Client, method string, url string, headers map[string]string, body string) (*http.Response, error) {
@@ -270,9 +278,7 @@ func handleError(err error, prefixErrMessage string) {
 func adjustUsage() {
 	// Get default flags usage
 	b := new(bytes.Buffer)
-	flag.CommandLine.SetOutput(b)
-	flag.Usage()
-	flag.CommandLine.SetOutput(os.Stderr)
+	func() { flag.CommandLine.SetOutput(b); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
 	// Sort params and description ( order by UsageRequiredPrefix )
 	re := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + "\n*\\s+(-\\S+)( *\\S*)+\n\\s+(.+)")
 	usageParams := re.FindAllString(b.String(), -1)
@@ -289,7 +295,9 @@ func adjustUsage() {
 		}
 	})
 	// Adjust usage
-	usage := strings.Split(b.String(), "\n")[0] + "\n"
+	usage := strings.Split(b.String(), "\n")[0] + "\n\n"
+	usage = usage + "Description:\n  HTTP request/response testing tool.\n\n"
+	usage = usage + "Options:\n"
 	for _, v := range usageParams {
 		usage = usage + fmt.Sprintf("  %-3s"+"%-"+strconv.Itoa(int(maxLengthParam))+"s", re.ReplaceAllString(v, "$1"), re.ReplaceAllString(v, ", -$3$4")) + re.ReplaceAllString(v, "$5\n")
 	}
