@@ -25,6 +25,7 @@ import (
 const (
 	UsageRequiredPrefix          = "\u001B[33m[required]\u001B[0m "
 	UsageDummy                   = "########"
+	CommandDescription           = "HTTP request/response testing tool."
 	HttpContentTypeHeader        = "Content-Type"
 	ContextKeyPrettyHttpLog      = "ContextKeyLoggingPrettyHttpLog"
 	ContextKeyNoReadResponseBody = "ContextKeyNoReadResponseBody"
@@ -279,27 +280,21 @@ func adjustUsage() {
 	// Get default flags usage
 	b := new(bytes.Buffer)
 	func() { flag.CommandLine.SetOutput(b); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
-	// Sort params and description ( order by UsageRequiredPrefix )
+	// Get default flags usage
 	re := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + "\n*\\s+(-\\S+)( *\\S*)+\n\\s+(.+)")
 	usageParams := re.FindAllString(b.String(), -1)
 	maxLengthParam := 0.0
 	sort.Slice(usageParams, func(i, j int) bool {
-		maxLengthParam = math.Max(maxLengthParam, float64(len(re.ReplaceAllString(usageParams[i], "$1, -$3$4"))))
-		maxLengthParam = math.Max(maxLengthParam, float64(len(re.ReplaceAllString(usageParams[j], "$1, -$3$4"))))
-		isRequired1 := strings.Index(usageParams[i], UsageRequiredPrefix) >= 0
-		isRequired2 := strings.Index(usageParams[j], UsageRequiredPrefix) >= 0
-		if isRequired1 == isRequired2 {
+		maxLengthParam = math.Max(maxLengthParam, math.Max(float64(len(re.ReplaceAllString(usageParams[i], "$1, -$3$4"))), float64(len(re.ReplaceAllString(usageParams[j], "$1, -$3$4")))))
+		if len(strings.Split(usageParams[i]+usageParams[j], UsageRequiredPrefix))%2 == 1 {
 			return strings.Compare(usageParams[i], usageParams[j]) == -1
 		} else {
-			return isRequired1
+			return strings.Index(usageParams[i], UsageRequiredPrefix) >= 0
 		}
 	})
-	// Adjust usage
-	usage := strings.Split(b.String(), "\n")[0] + "\n\n"
-	usage = usage + "Description:\n  HTTP request/response testing tool.\n\n"
-	usage = usage + "Options:\n"
+	usage := strings.Split(b.String(), "\n")[0] + "\n\nDescription:\n  " + CommandDescription + "\n\nOptions:\n"
 	for _, v := range usageParams {
-		usage = usage + fmt.Sprintf("  %-3s"+"%-"+strconv.Itoa(int(maxLengthParam))+"s", re.ReplaceAllString(v, "$1"), re.ReplaceAllString(v, ", -$3$4")) + re.ReplaceAllString(v, "$5\n")
+		usage += fmt.Sprintf("%-"+strconv.Itoa(int(maxLengthParam+4.0))+"s", re.ReplaceAllString(v, "  $1, -$3$4")) + re.ReplaceAllString(v, "$5\n")
 	}
 	flag.Usage = func() { _, _ = fmt.Fprintf(flag.CommandLine.Output(), usage) }
 }
