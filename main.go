@@ -33,20 +33,22 @@ const (
 )
 
 var (
-	// Define short parameters ( this default value will be not used ).
-	paramsTargetUrl           = flag.String("t", "", UsageDummy)
-	paramsHttpMethod          = flag.String("m", "", UsageDummy)
-	paramsBody                = flag.String("b", "", UsageDummy)
-	paramsHostHeader          = flag.String("ho", "", UsageDummy)
-	paramsUuidHeaderName      = flag.String("u", "", UsageDummy)
-	paramsNetworkType         = flag.String("n", "", UsageDummy)
-	paramsLoopCount           = flag.Int("l", 0, UsageDummy)
-	paramsWaitMillSecond      = flag.Int("w", 0, UsageDummy)
-	paramsPrettyHttpMessage   = flag.Bool("p", false, UsageDummy)
-	paramsNoReadResponseBody  = flag.Bool("no", false, UsageDummy)
-	paramsSkipTlsVerification = flag.Bool("s", false, UsageDummy)
-	paramsDisableHttp2        = flag.Bool("d", false, UsageDummy)
-	paramsHelp                = flag.Bool("h", false, UsageDummy)
+	// Required parameters
+	paramsTargetUrl = defineStringParam("t", "target-host", UsageRequiredPrefix+"target url (sample https://****.***/***/*** )", "")
+
+	// Optional parameters
+	paramsHttpMethod          = defineStringParam("m", "method", "HTTP method", "GET")
+	paramsBody                = defineStringParam("b", "body", "request body", "")
+	paramsHostHeader          = defineStringParam("ho", "host-header", "host header", "")
+	paramsUuidHeaderName      = defineStringParam("u", "uuid-header-name", "header name for uuid in the request", "")
+	paramsNetworkType         = defineStringParam("n", "network-type", "network type [ values: \"tcp4\", \"tcp6\" ]", "tcp4")
+	paramsLoopCount           = defineIntParam("l", "loop-count", "loop count", 3)
+	paramsWaitMillSecond      = defineIntParam("w", "wait-millisecond", "wait millisecond", 1000)
+	paramsPrettyHttpMessage   = defineBoolParam("p", "pretty-http-message", "print pretty http message")
+	paramsNoReadResponseBody  = defineBoolParam("no", "no-read-response-body", "don't read response body (If this is enabled, http connection will be not reused between each request)")
+	paramsSkipTlsVerification = defineBoolParam("s", "skip-tls-verification", "skip tls verification")
+	paramsDisableHttp2        = defineBoolParam("d", "disable-http2", "disable HTTP/2")
+	paramsHelp                = defineBoolParam("h", "help", "show help")
 
 	// HTTP Header templates
 	httpHeaderEmptyMap        = make(map[string]string)
@@ -55,21 +57,6 @@ var (
 )
 
 func init() {
-	// Define long parameters
-	flag.StringVar(paramsTargetUrl /*         */, "target-host" /*            */, "" /*      */, UsageRequiredPrefix+"target url (sample https://****.***/***/*** )")
-	flag.StringVar(paramsHttpMethod /*        */, "method" /*                 */, "GET" /*   */, "HTTP method")
-	flag.StringVar(paramsBody /*              */, "body" /*                   */, "" /*      */, "request body")
-	flag.StringVar(paramsHostHeader /*        */, "host-header" /*            */, "" /*      */, "host header")
-	flag.StringVar(paramsUuidHeaderName /*    */, "uuid-header-name" /*       */, "" /*      */, "header name for uuid in the request")
-	flag.StringVar(paramsNetworkType /*       */, "network-type" /*           */, "tcp4" /*  */, "network type [ values: \"tcp4\", \"tcp6\" ]")
-	flag.IntVar(paramsLoopCount /*            */, "loop-count" /*             */, 3 /*       */, "loop count")
-	flag.IntVar(paramsWaitMillSecond /*       */, "wait-millisecond" /*       */, 1000 /*    */, "wait millisecond")
-	flag.BoolVar(paramsPrettyHttpMessage /*   */, "pretty-http-message" /*    */, false /*   */, "print pretty http message")
-	flag.BoolVar(paramsNoReadResponseBody /*  */, "no-read-response-body" /*  */, false /*   */, "don't read response body (If this is enabled, http connection will be not reused between each request)")
-	flag.BoolVar(paramsSkipTlsVerification /* */, "skip-tls-verification" /*  */, false /*   */, "skip tls verification")
-	flag.BoolVar(paramsDisableHttp2 /*        */, "disable-http2" /*          */, false /*   */, "disable HTTP/2")
-	flag.BoolVar(paramsHelp /*                */, "help" /*                   */, false /*   */, "show help")
-
 	adjustUsage()
 }
 
@@ -274,6 +261,26 @@ func handleError(err error, prefixErrMessage string) {
 	if err != nil {
 		fmt.Printf("%s [ERROR %s]: %v\n", time.Now().Format(TimeFormat), prefixErrMessage, err)
 	}
+}
+
+func defineStringParam(short, long, description, defaultValue string) (v *string) {
+	// Define short parameters ( this default value and usage will be not used ).
+	v = flag.String(short, "", UsageDummy)
+	// Define long parameters and description ( set default value here if you need ).
+	flag.StringVar(v, long, defaultValue, description)
+	return
+}
+
+func defineIntParam(short, long, description string, defaultValue int) (v *int) {
+	v = flag.Int(short, 0, UsageDummy)
+	flag.IntVar(v, long, defaultValue, description)
+	return
+}
+
+func defineBoolParam(short, long, description string) (v *bool) {
+	v = flag.Bool(short, false, UsageDummy)
+	flag.BoolVar(v, long, false, description)
+	return
 }
 
 func adjustUsage() {
