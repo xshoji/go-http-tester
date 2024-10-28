@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"maps"
 	"math"
 	"net"
 	"net/http"
@@ -51,9 +52,15 @@ var (
 	paramsHelp                = defineBoolParam("h", "help", "show help")
 
 	// HTTP Header templates
-	httpHeaderEmptyMap        = make(map[string]string)
-	httpHeaderContentTypeForm = map[string]string{HttpContentTypeHeader: "application/x-www-form-urlencoded;charset=utf-8"}
-	httpHeaderContentTypeJson = map[string]string{HttpContentTypeHeader: "application/json;charset=utf-8"}
+	createHttpHeaderEmpty = func() map[string]string {
+		return maps.Clone(make(map[string]string))
+	}
+	createHttpHeaderContentTypeForm = func() map[string]string {
+		return maps.Clone(map[string]string{HttpContentTypeHeader: "application/x-www-form-urlencoded;charset=utf-8"})
+	}
+	createHttpHeaderContentTypeJson = func() map[string]string {
+		return maps.Clone(map[string]string{HttpContentTypeHeader: "application/json"})
+	}
 )
 
 func init() {
@@ -97,7 +104,7 @@ func main() {
 	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *paramsPrettyHttpMessage)
 	ctx = context.WithValue(ctx, ContextKeyNoReadResponseBody, *paramsNoReadResponseBody)
 
-	headers := httpHeaderEmptyMap
+	headers := createHttpHeaderEmpty()
 	if *paramsUuidHeaderName != "" {
 		headers[*paramsUuidHeaderName] = createUuid()
 	}
@@ -299,9 +306,9 @@ func adjustUsage() {
 			return strings.Index(usageParams[i], UsageRequiredPrefix) >= 0
 		}
 	})
-	usage := strings.Split(b.String(), "\n")[0] + "\n\nDescription:\n  " + CommandDescription + "\n\nOptions:\n"
+	usage := strings.Replace(strings.Replace(strings.Split(b.String(), "\n")[0], ":", " [OPTIONS]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + CommandDescription + "\n\nOptions:\n"
 	for _, v := range usageParams {
-		usage += fmt.Sprintf("%-"+strconv.Itoa(int(maxLengthParam+4.0))+"s", re.ReplaceAllString(v, "  $1, -$3$4")) + re.ReplaceAllString(v, "$5\n")
+		usage += fmt.Sprintf("%-6s%-"+strconv.Itoa(int(maxLengthParam))+"s", re.ReplaceAllString(v, "  $1,"), re.ReplaceAllString(v, "-$3$4")) + re.ReplaceAllString(v, "$5\n")
 	}
 	flag.Usage = func() { _, _ = fmt.Fprintf(flag.CommandLine.Output(), usage) }
 }
