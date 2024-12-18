@@ -35,21 +35,21 @@ const (
 
 var (
 	// Required parameters
-	paramsTargetUrl = defineStringParam("t", "target-host", UsageRequiredPrefix+"target url (sample https://****.***/***/*** )", "")
+	optionTargetUrl = defineStringFlag("t", "target-host", UsageRequiredPrefix+"target url (sample https://****.***/***/*** )", "")
 
 	// Optional parameters
-	paramsHttpMethod          = defineStringParam("m", "method", "HTTP method", "GET")
-	paramsBody                = defineStringParam("b", "body", "request body", "")
-	paramsHostHeader          = defineStringParam("ho", "host-header", "host header", "")
-	paramsUuidHeaderName      = defineStringParam("u", "uuid-header-name", "header name for uuid in the request", "")
-	paramsNetworkType         = defineStringParam("n", "network-type", "network type [ values: \"tcp4\", \"tcp6\" ]", "tcp4")
-	paramsLoopCount           = defineIntParam("l", "loop-count", "loop count", 3)
-	paramsWaitMillSecond      = defineIntParam("w", "wait-millisecond", "wait millisecond", 1000)
-	paramsPrettyHttpMessage   = defineBoolParam("p", "pretty-http-message", "print pretty http message")
-	paramsNoReadResponseBody  = defineBoolParam("no", "no-read-response-body", "don't read response body (If this is enabled, http connection will be not reused between each request)")
-	paramsSkipTlsVerification = defineBoolParam("s", "skip-tls-verification", "skip tls verification")
-	paramsDisableHttp2        = defineBoolParam("d", "disable-http2", "disable HTTP/2")
-	paramsHelp                = defineBoolParam("h", "help", "show help")
+	optionHttpMethod          = defineStringFlag("m", "method", "HTTP method", "GET")
+	optionBody                = defineStringFlag("b", "body", "request body", "")
+	optionHostHeader          = defineStringFlag("ho", "host-header", "host header", "")
+	optionUuidHeaderName      = defineStringFlag("u", "uuid-header-name", "header name for uuid in the request", "")
+	optionNetworkType         = defineStringFlag("n", "network-type", "network type [ values: \"tcp4\", \"tcp6\" ]", "tcp4")
+	optionLoopCount           = defineIntFlag("l", "loop-count", "loop count", 3)
+	optionWaitMillSecond      = defineIntFlag("w", "wait-millisecond", "wait millisecond", 1000)
+	optionPrettyHttpMessage   = defineBoolFlag("p", "pretty-http-message", "print pretty http message")
+	optionNoReadResponseBody  = defineBoolFlag("no", "no-read-response-body", "don't read response body (If this is enabled, http connection will be not reused between each request)")
+	optionSkipTlsVerification = defineBoolFlag("s", "skip-tls-verification", "skip tls verification")
+	optionDisableHttp2        = defineBoolFlag("d", "disable-http2", "disable HTTP/2")
+	optionHelp                = defineBoolFlag("h", "help", "show help")
 
 	// HTTP Header templates
 	createHttpHeaderEmpty = func() map[string]string {
@@ -70,7 +70,7 @@ func init() {
 func main() {
 
 	flag.Parse()
-	if *paramsHelp || *paramsTargetUrl == "" {
+	if *optionHelp || *optionTargetUrl == "" {
 		flag.Usage()
 		os.Exit(0)
 	}
@@ -78,40 +78,40 @@ func main() {
 	sslKeyLogFile := os.Getenv("SSLKEYLOGFILE")
 	client := http.Client{
 		Transport: CreateCustomTransport(
-			CreateTlsConfig(*paramsSkipTlsVerification, sslKeyLogFile),
-			*paramsDisableHttp2,
-			*paramsNetworkType,
+			CreateTlsConfig(*optionSkipTlsVerification, sslKeyLogFile),
+			*optionDisableHttp2,
+			*optionNetworkType,
 		),
 	}
 
 	fmt.Println("#--------------------")
 	fmt.Println("# Command information")
 	fmt.Println("#--------------------")
-	fmt.Printf("target url            : %s\n", *paramsTargetUrl)
-	fmt.Printf("HTTP method           : %s\n", *paramsHttpMethod)
-	fmt.Printf("request body          : %s\n", *paramsBody)
-	fmt.Printf("host header           : %s\n", *paramsHostHeader)
-	fmt.Printf("loop count            : %d\n", *paramsLoopCount)
-	fmt.Printf("wait millsecond       : %d\n", *paramsWaitMillSecond)
-	fmt.Printf("uuid header name      : %s\n", *paramsUuidHeaderName)
-	fmt.Printf("skip tls Verification : %t\n", *paramsSkipTlsVerification)
-	fmt.Printf("network type          : %s\n", *paramsNetworkType)
-	fmt.Printf("no read response body : %t\n", *paramsNoReadResponseBody)
-	fmt.Printf("disable HTTP/2        : %t\n", *paramsDisableHttp2)
+	fmt.Printf("target url            : %s\n", *optionTargetUrl)
+	fmt.Printf("HTTP method           : %s\n", *optionHttpMethod)
+	fmt.Printf("request body          : %s\n", *optionBody)
+	fmt.Printf("host header           : %s\n", *optionHostHeader)
+	fmt.Printf("loop count            : %d\n", *optionLoopCount)
+	fmt.Printf("wait millsecond       : %d\n", *optionWaitMillSecond)
+	fmt.Printf("uuid header name      : %s\n", *optionUuidHeaderName)
+	fmt.Printf("skip tls Verification : %t\n", *optionSkipTlsVerification)
+	fmt.Printf("network type          : %s\n", *optionNetworkType)
+	fmt.Printf("no read response body : %t\n", *optionNoReadResponseBody)
+	fmt.Printf("disable HTTP/2        : %t\n", *optionDisableHttp2)
 	fmt.Printf("SSLKEYLOGFILE         : %s\n", sslKeyLogFile)
 
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *paramsPrettyHttpMessage)
-	ctx = context.WithValue(ctx, ContextKeyNoReadResponseBody, *paramsNoReadResponseBody)
+	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *optionPrettyHttpMessage)
+	ctx = context.WithValue(ctx, ContextKeyNoReadResponseBody, *optionNoReadResponseBody)
 
 	headers := createHttpHeaderEmpty()
-	if *paramsUuidHeaderName != "" {
-		headers[*paramsUuidHeaderName] = createUuid()
+	if *optionUuidHeaderName != "" {
+		headers[*optionUuidHeaderName] = createUuid()
 	}
 
-	for i := 0; i < *paramsLoopCount; i++ {
-		_, _ = DoHttpRequest(ctx, client, *paramsHttpMethod, *paramsTargetUrl, headers, *paramsBody)
-		time.Sleep(time.Duration(*paramsWaitMillSecond) * time.Millisecond)
+	for i := 0; i < *optionLoopCount; i++ {
+		_, _ = DoHttpRequest(ctx, client, *optionHttpMethod, *optionTargetUrl, headers, *optionBody)
+		time.Sleep(time.Duration(*optionWaitMillSecond) * time.Millisecond)
 	}
 }
 
@@ -270,7 +270,7 @@ func handleError(err error, prefixErrMessage string) {
 	}
 }
 
-func defineStringParam(short, long, description, defaultValue string) (v *string) {
+func defineStringFlag(short, long, description, defaultValue string) (v *string) {
 	// Define short parameters ( this default value and usage will be not used ).
 	v = flag.String(short, "", UsageDummy)
 	// Define long parameters and description ( set default value here if you need ).
@@ -278,13 +278,13 @@ func defineStringParam(short, long, description, defaultValue string) (v *string
 	return
 }
 
-func defineIntParam(short, long, description string, defaultValue int) (v *int) {
+func defineIntFlag(short, long, description string, defaultValue int) (v *int) {
 	v = flag.Int(short, 0, UsageDummy)
 	flag.IntVar(v, long, defaultValue, description)
 	return
 }
 
-func defineBoolParam(short, long, description string) (v *bool) {
+func defineBoolFlag(short, long, description string) (v *bool) {
 	v = flag.Bool(short, false, UsageDummy)
 	flag.BoolVar(v, long, false, description)
 	return
@@ -296,19 +296,19 @@ func adjustUsage() {
 	func() { flag.CommandLine.SetOutput(b); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
 	// Get default flags usage
 	re := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + ".*\n*\\s+(-\\S+)( *\\S*)+\n\\s+(.+)")
-	usageParams := re.FindAllString(b.String(), -1)
-	maxLengthParam := 0.0
-	sort.Slice(usageParams, func(i, j int) bool {
-		maxLengthParam = math.Max(maxLengthParam, math.Max(float64(len(re.ReplaceAllString(usageParams[i], "$1, -$3$4"))), float64(len(re.ReplaceAllString(usageParams[j], "$1, -$3$4")))))
-		if len(strings.Split(usageParams[i]+usageParams[j], UsageRequiredPrefix))%2 == 1 {
-			return strings.Compare(usageParams[i], usageParams[j]) == -1
+	usageOptions := re.FindAllString(b.String(), -1)
+	maxLength := 0.0
+	sort.Slice(usageOptions, func(i, j int) bool {
+		maxLength = math.Max(maxLength, math.Max(float64(len(re.ReplaceAllString(usageOptions[i], "$1, -$3$4"))), float64(len(re.ReplaceAllString(usageOptions[j], "$1, -$3$4")))))
+		if len(strings.Split(usageOptions[i]+usageOptions[j], UsageRequiredPrefix))%2 == 1 {
+			return strings.Compare(usageOptions[i], usageOptions[j]) == -1
 		} else {
-			return strings.Index(usageParams[i], UsageRequiredPrefix) >= 0
+			return strings.Index(usageOptions[i], UsageRequiredPrefix) >= 0
 		}
 	})
 	usage := strings.Replace(strings.Replace(strings.Split(b.String(), "\n")[0], ":", " [OPTIONS]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + CommandDescription + "\n\nOptions:\n"
-	for _, v := range usageParams {
-		usage += fmt.Sprintf("%-6s%-"+strconv.Itoa(int(maxLengthParam))+"s", re.ReplaceAllString(v, "  $1,"), re.ReplaceAllString(v, "-$3$4")) + re.ReplaceAllString(v, "$5\n")
+	for _, v := range usageOptions {
+		usage += fmt.Sprintf("%-6s%-"+strconv.Itoa(int(maxLength))+"s", re.ReplaceAllString(v, "  $1,"), re.ReplaceAllString(v, "-$3$4")) + re.ReplaceAllString(v, "$5\n")
 	}
 	flag.Usage = func() { _, _ = fmt.Fprintf(flag.CommandLine.Output(), usage) }
 }
