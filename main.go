@@ -24,9 +24,8 @@ import (
 )
 
 const (
-	UsageRequiredPrefix          = "\u001B[33m[required]\u001B[0m "
+	UsageRequiredPrefix          = "\u001B[33m[RQD]\u001B[0m "
 	UsageDummy                   = "########"
-	CommandDescription           = "HTTP request/response testing tool."
 	HttpContentTypeHeader        = "Content-Type"
 	ContextKeyPrettyHttpLog      = "ContextKeyLoggingPrettyHttpLog"
 	ContextKeyNoReadResponseBody = "ContextKeyNoReadResponseBody"
@@ -34,22 +33,20 @@ const (
 )
 
 var (
-	// Required parameters
-	optionTargetUrl = defineStringFlag("t", "target-host", UsageRequiredPrefix+"target url (sample https://****.***/***/*** )", "")
-
-	// Optional parameters
-	optionHttpMethod          = defineStringFlag("m", "method", "HTTP method", "GET")
-	optionBody                = defineStringFlag("b", "body", "request body", "")
-	optionHostHeader          = defineStringFlag("ho", "host-header", "host header", "")
-	optionUuidHeaderName      = defineStringFlag("u", "uuid-header-name", "header name for uuid in the request", "")
-	optionNetworkType         = defineStringFlag("n", "network-type", "network type [ values: \"tcp4\", \"tcp6\" ]", "tcp4")
-	optionLoopCount           = defineIntFlag("l", "loop-count", "loop count", 3)
-	optionWaitMillSecond      = defineIntFlag("w", "wait-millisecond", "wait millisecond", 1000)
-	optionPrettyHttpMessage   = defineBoolFlag("p", "pretty-http-message", "print pretty http message")
-	optionNoReadResponseBody  = defineBoolFlag("no", "no-read-response-body", "don't read response body (If this is enabled, http connection will be not reused between each request)")
-	optionSkipTlsVerification = defineBoolFlag("s", "skip-tls-verification", "skip tls verification")
-	optionDisableHttp2        = defineBoolFlag("d", "disable-http2", "disable HTTP/2")
-	optionHelp                = defineBoolFlag("h", "help", "show help")
+	commandDescription        = "HTTP request/response testing tool."
+	optionTargetUrl           = defineFlagValue("t", "target-host", UsageRequiredPrefix+"Target url (sample https://****.***/***/*** )", "").(*string)
+	optionHttpMethod          = defineFlagValue("m", "method", "HTTP method", "GET").(*string)
+	optionBody                = defineFlagValue("b", "body", "Request body", "").(*string)
+	optionHostHeader          = defineFlagValue("ho", "host-header", "Host header", "").(*string)
+	optionUuidHeaderName      = defineFlagValue("u", "uuid-header-name", "Header name for uuid in the request", "").(*string)
+	optionNetworkType         = defineFlagValue("n", "network-type", "Network type [ values: \"tcp4\", \"tcp6\" ]", "tcp4").(*string)
+	optionLoopCount           = defineFlagValue("l", "loop-count", "Loop count", 3).(*int)
+	optionWaitMillSecond      = defineFlagValue("w", "wait-millisecond", "Wait millisecond", 1000).(*int)
+	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message", "Print pretty http message", false).(*bool)
+	optionNoReadResponseBody  = defineFlagValue("no", "no-read-response-body", "Don't read response body (If this is enabled, http connection will be not reused between each request)", false).(*bool)
+	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification", "Skip tls verification", false).(*bool)
+	optionDisableHttp2        = defineFlagValue("d", "disable-http2", "Disable HTTP/2", false).(*bool)
+	optionHelp                = defineFlagValue("h", "help", "Show help", false).(*bool)
 
 	// HTTP Header templates
 	createHttpHeaderEmpty = func() map[string]string {
@@ -64,7 +61,7 @@ var (
 )
 
 func init() {
-	adjustUsage()
+	formatUsage(commandDescription)
 }
 
 func main() {
@@ -270,27 +267,25 @@ func handleError(err error, prefixErrMessage string) {
 	}
 }
 
-func defineStringFlag(short, long, description, defaultValue string) (v *string) {
-	// Define short parameters ( this default value and usage will be not used ).
-	v = flag.String(short, "", UsageDummy)
-	// Define long parameters and description ( set default value here if you need ).
-	flag.StringVar(v, long, defaultValue, description)
+// Helper function for flag
+func defineFlagValue(short, long, description string, defaultValue any) (f any) {
+	switch defaultValue.(type) {
+	case string:
+		f = flag.String(short, "", UsageDummy)
+		flag.StringVar(f.(*string), long, defaultValue.(string), description)
+	case int:
+		f = flag.Int(short, 0, UsageDummy)
+		flag.IntVar(f.(*int), long, defaultValue.(int), description)
+	case bool:
+		f = flag.Bool(short, false, UsageDummy)
+		flag.BoolVar(f.(*bool), long, defaultValue.(bool), description)
+	default:
+		panic("unsupported flag type")
+	}
 	return
 }
 
-func defineIntFlag(short, long, description string, defaultValue int) (v *int) {
-	v = flag.Int(short, 0, UsageDummy)
-	flag.IntVar(v, long, defaultValue, description)
-	return
-}
-
-func defineBoolFlag(short, long, description string) (v *bool) {
-	v = flag.Bool(short, false, UsageDummy)
-	flag.BoolVar(v, long, false, description)
-	return
-}
-
-func adjustUsage() {
+func formatUsage(description string) {
 	// Get default flags usage
 	b := new(bytes.Buffer)
 	func() { flag.CommandLine.SetOutput(b); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
@@ -306,7 +301,7 @@ func adjustUsage() {
 			return strings.Index(usageOptions[i], UsageRequiredPrefix) >= 0
 		}
 	})
-	usage := strings.Replace(strings.Replace(strings.Split(b.String(), "\n")[0], ":", " [OPTIONS]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + CommandDescription + "\n\nOptions:\n"
+	usage := strings.Replace(strings.Replace(strings.Split(b.String(), "\n")[0], ":", " [OPTIONS]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + description + "\n\nOptions:\n"
 	for _, v := range usageOptions {
 		usage += fmt.Sprintf("%-6s%-"+strconv.Itoa(int(maxLength))+"s", re.ReplaceAllString(v, "  $1,"), re.ReplaceAllString(v, "-$3$4")) + re.ReplaceAllString(v, "$5\n")
 	}
