@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"maps"
-	"math"
 	"net"
 	"net/http"
 	"net/http/httptrace"
@@ -33,7 +33,9 @@ const (
 )
 
 var (
+	// Command options ( the -h, --help option is defined by default in the flag package )
 	commandDescription        = "HTTP request/response testing tool."
+	commandOptionMaxLength    = 0
 	optionTargetUrl           = defineFlagValue("t", "target-host", UsageRequiredPrefix+"Target url (sample https://****.***/***/*** )", "").(*string)
 	optionHttpMethod          = defineFlagValue("m", "method", "HTTP method", "GET").(*string)
 	optionBody                = defineFlagValue("b", "body", "Request body", "").(*string)
@@ -46,7 +48,6 @@ var (
 	optionNoReadResponseBody  = defineFlagValue("no", "no-read-response-body", "Don't read response body (If this is enabled, http connection will be not reused between each request)", false).(*bool)
 	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification", "Skip tls verification", false).(*bool)
 	optionDisableHttp2        = defineFlagValue("d", "disable-http2", "Disable HTTP/2", false).(*bool)
-	optionHelp                = defineFlagValue("h", "help", "Show help", false).(*bool)
 
 	// HTTP Header templates
 	createHttpHeaderEmpty = func() map[string]string {
@@ -61,15 +62,16 @@ var (
 )
 
 func init() {
-	formatUsage(commandDescription)
+	formatUsage(commandDescription, &commandOptionMaxLength, new(bytes.Buffer))
 }
 
 func main() {
 
 	flag.Parse()
-	if *optionHelp || *optionTargetUrl == "" {
+	if *optionTargetUrl == "" {
+		fmt.Printf("\n[ERROR] Missing required option\n\n")
 		flag.Usage()
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	sslKeyLogFile := os.Getenv("SSLKEYLOGFILE")
@@ -81,21 +83,15 @@ func main() {
 		),
 	}
 
-	fmt.Println("#--------------------")
-	fmt.Println("# Command information")
-	fmt.Println("#--------------------")
-	fmt.Printf("target url            : %s\n", *optionTargetUrl)
-	fmt.Printf("HTTP method           : %s\n", *optionHttpMethod)
-	fmt.Printf("request body          : %s\n", *optionBody)
-	fmt.Printf("host header           : %s\n", *optionHostHeader)
-	fmt.Printf("loop count            : %d\n", *optionLoopCount)
-	fmt.Printf("wait millsecond       : %d\n", *optionWaitMillSecond)
-	fmt.Printf("uuid header name      : %s\n", *optionUuidHeaderName)
-	fmt.Printf("skip tls Verification : %t\n", *optionSkipTlsVerification)
-	fmt.Printf("network type          : %s\n", *optionNetworkType)
-	fmt.Printf("no read response body : %t\n", *optionNoReadResponseBody)
-	fmt.Printf("disable HTTP/2        : %t\n", *optionDisableHttp2)
-	fmt.Printf("SSLKEYLOGFILE         : %s\n", sslKeyLogFile)
+	fmt.Printf("[ Environment variable ]\nSSLKEYLOGFILE: %s\n\n", sslKeyLogFile)
+	fmt.Printf("[ Command options ]\n")
+	flag.VisitAll(func(a *flag.Flag) {
+		if a.Usage == UsageDummy {
+			return
+		}
+		fmt.Printf("--%-"+strconv.Itoa(commandOptionMaxLength)+"s %s\n", fmt.Sprintf("%s %v", a.Name, a.Value), strings.Trim(a.Usage, "\n"))
+	})
+	fmt.Printf("\n\n")
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *optionPrettyHttpMessage)
@@ -107,7 +103,7 @@ func main() {
 	}
 
 	for i := 0; i < *optionLoopCount; i++ {
-		_, _ = DoHttpRequest(ctx, client, *optionHttpMethod, *optionTargetUrl, headers, *optionBody)
+		_, _ = DoHttpRequest(ctx, client, *optionHttpMethod, *optionTargetUrl, headers, *optionHostHeader, strings.NewReader(*optionBody))
 		time.Sleep(time.Duration(*optionWaitMillSecond) * time.Millisecond)
 	}
 }
@@ -186,10 +182,13 @@ func CreateTlsConfig(skipTlsVerification bool, sslKeyLogFile string) *tls.Config
 	return tlsConfig
 }
 
-func DoHttpRequest(ctx context.Context, client http.Client, method string, url string, headers map[string]string, body string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(body))
+func DoHttpRequest(ctx context.Context, client http.Client, method string, url string, headers map[string]string, hostHeader string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	for key, value := range headers {
 		req.Header.Set(key, value)
+	}
+	if hostHeader != "" {
+		req.Host = hostHeader
 	}
 	handleError(err, "http.NewRequestWithContext")
 	return client.Do(req)
@@ -285,25 +284,21 @@ func defineFlagValue(short, long, description string, defaultValue any) (f any) 
 	return
 }
 
-func formatUsage(description string) {
+func formatUsage(description string, maxLength *int, buffer *bytes.Buffer) {
 	// Get default flags usage
-	b := new(bytes.Buffer)
-	func() { flag.CommandLine.SetOutput(b); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
-	// Get default flags usage
+	func() { flag.CommandLine.SetOutput(buffer); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
 	re := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + ".*\n*\\s+(-\\S+)( *\\S*)+\n\\s+(.+)")
-	usageOptions := re.FindAllString(b.String(), -1)
-	maxLength := 0.0
-	sort.Slice(usageOptions, func(i, j int) bool {
-		maxLength = math.Max(maxLength, math.Max(float64(len(re.ReplaceAllString(usageOptions[i], "$1, -$3$4"))), float64(len(re.ReplaceAllString(usageOptions[j], "$1, -$3$4")))))
-		if len(strings.Split(usageOptions[i]+usageOptions[j], UsageRequiredPrefix))%2 == 1 {
-			return strings.Compare(usageOptions[i], usageOptions[j]) == -1
-		} else {
-			return strings.Index(usageOptions[i], UsageRequiredPrefix) >= 0
-		}
-	})
-	usage := strings.Replace(strings.Replace(strings.Split(b.String(), "\n")[0], ":", " [OPTIONS]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + description + "\n\nOptions:\n"
+	usageFirst := strings.Replace(strings.Replace(strings.Split(buffer.String(), "\n")[0], ":", " [OPTIONS] [-h, --help]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + description + "\n\nOptions:\n"
+	usageOptions := re.FindAllString(buffer.String(), -1)
 	for _, v := range usageOptions {
-		usage += fmt.Sprintf("%-6s%-"+strconv.Itoa(int(maxLength))+"s", re.ReplaceAllString(v, "  $1,"), re.ReplaceAllString(v, "-$3$4")) + re.ReplaceAllString(v, "$5\n")
+		*maxLength = max(*maxLength, len(re.ReplaceAllString(v, "$1, -$3$4")))
 	}
-	flag.Usage = func() { _, _ = fmt.Fprintf(flag.CommandLine.Output(), usage) }
+	usageOptionsRep := make([]string, 0)
+	for _, v := range usageOptions {
+		usageOptionsRep = append(usageOptionsRep, fmt.Sprintf("%-6s%-"+strconv.Itoa(*maxLength)+"s", re.ReplaceAllString(v, "  $1,"), re.ReplaceAllString(v, "-$3$4"))+re.ReplaceAllString(v, "$5\n"))
+	}
+	sort.SliceStable(usageOptionsRep, func(i, j int) bool {
+		return strings.Count(usageOptionsRep[i], UsageRequiredPrefix) > strings.Count(usageOptionsRep[j], UsageRequiredPrefix)
+	})
+	flag.Usage = func() { _, _ = fmt.Fprintf(flag.CommandLine.Output(), usageFirst+strings.Join(usageOptionsRep, "")) }
 }
