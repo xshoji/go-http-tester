@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	UsageRequiredPrefix          = "\u001B[33m[RQD]\u001B[0m "
+	UsageRequiredPrefix          = "\u001B[33m(REQ)\u001B[0m "
 	UsageDummy                   = "########"
 	HttpContentTypeHeader        = "Content-Type"
 	ContextKeyPrettyHttpLog      = "ContextKeyLoggingPrettyHttpLog"
@@ -36,18 +36,18 @@ var (
 	// Command options ( the -h, --help option is defined by default in the flag package )
 	commandDescription        = "HTTP request/response testing tool."
 	commandOptionMaxLength    = 0
-	optionTargetUrl           = defineFlagValue("t", "target-host", UsageRequiredPrefix+"Target url (sample https://****.***/***/*** )", "").(*string)
-	optionHttpMethod          = defineFlagValue("m", "method", "HTTP method", "GET").(*string)
-	optionBody                = defineFlagValue("b", "body", "Request body", "").(*string)
-	optionHostHeader          = defineFlagValue("ho", "host-header", "Host header", "").(*string)
-	optionUuidHeaderName      = defineFlagValue("u", "uuid-header-name", "Header name for uuid in the request", "").(*string)
-	optionNetworkType         = defineFlagValue("n", "network-type", "Network type [ values: \"tcp4\", \"tcp6\" ]", "tcp4").(*string)
-	optionLoopCount           = defineFlagValue("l", "loop-count", "Loop count", 3).(*int)
-	optionWaitMillSecond      = defineFlagValue("w", "wait-millisecond", "Wait millisecond", 1000).(*int)
-	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message", "Print pretty http message", false).(*bool)
-	optionNoReadResponseBody  = defineFlagValue("no", "no-read-response-body", "Don't read response body (If this is enabled, http connection will be not reused between each request)", false).(*bool)
-	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification", "Skip tls verification", false).(*bool)
-	optionDisableHttp2        = defineFlagValue("d", "disable-http2", "Disable HTTP/2", false).(*bool)
+	optionTargetUrl           = defineFlagValue("t", "target-host" /*            */, UsageRequiredPrefix+"Target url (sample https://**.**/** )" /* */, "").(*string)
+	optionHttpMethod          = defineFlagValue("m", "method" /*                 */, "HTTP method" /*                                               */, "GET").(*string)
+	optionBody                = defineFlagValue("b", "body" /*                   */, "Request body" /*                                              */, "").(*string)
+	optionHostHeader          = defineFlagValue("ho", "host-header" /*           */, "Host header" /*                                               */, "").(*string)
+	optionUuidHeaderName      = defineFlagValue("u", "uuid-header-name" /*       */, "Header name for uuid in the request" /*                       */, "").(*string)
+	optionNetworkType         = defineFlagValue("n", "network-type" /*           */, "Network type [ values: \"tcp4\", \"tcp6\" ]" /*               */, "tcp4").(*string)
+	optionLoopCount           = defineFlagValue("l", "loop-count" /*             */, "Loop count" /*                                                */, 3).(*int)
+	optionWaitMillSecond      = defineFlagValue("w", "wait-millisecond" /*       */, "Wait millisecond" /*                                          */, 1000).(*int)
+	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message" /*    */, "Print pretty http message" /*                                 */, false).(*bool)
+	optionNoReadResponseBody  = defineFlagValue("no", "no-read-response-body" /* */, "Don't read response body (If this is enabled, http connection will be not reused between each request)", false).(*bool)
+	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification" /*  */, "Skip tls verification" /*                                     */, false).(*bool)
+	optionDisableHttp2        = defineFlagValue("d", "disable-http2" /*          */, "Disable HTTP/2" /*                                            */, false).(*bool)
 
 	// HTTP Header templates
 	createHttpHeaderEmpty = func() map[string]string {
@@ -65,8 +65,9 @@ func init() {
 	formatUsage(commandDescription, &commandOptionMaxLength, new(bytes.Buffer))
 }
 
+// Build:
+// $ GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o /tmp/go-http-tester main.go
 func main() {
-
 	flag.Parse()
 	if *optionTargetUrl == "" {
 		fmt.Printf("\n[ERROR] Missing required option\n\n")
