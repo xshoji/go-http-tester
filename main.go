@@ -65,7 +65,7 @@ func init() {
 
 // Build:
 // $ GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o /tmp/go-http-tester main.go
-// $ go build -ldflags="-s -w" -trimpath -o "/tmp/$(basename "PWD")" main.go
+// $ go build -ldflags="-s -w" -trimpath -o "/tmp/$(basename "${PWD}")" main.go
 func main() {
 	flag.Parse()
 	if *optionTargetUrl == "" {
@@ -89,7 +89,7 @@ func main() {
 		if a.Usage == UsageDummy {
 			return
 		}
-		fmt.Printf("--%-"+commandOptionMaxLength+"s %s\n", fmt.Sprintf("%s %v", a.Name, a.Value), strings.Trim(a.Usage, "\n"))
+		fmt.Printf("--%-"+commandOptionMaxLength+"s %s\n", fmt.Sprintf("%s %v", a.Name, a.Value), strings.Split(a.Usage, UsageDummy)[1])
 	})
 	fmt.Printf("\n\n")
 
