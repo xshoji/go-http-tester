@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -16,7 +15,6 @@ import (
 	"net/http/httptrace"
 	"net/http/httputil"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,7 +33,7 @@ const (
 var (
 	// Command options ( the -h, --help option is defined by default in the flag package )
 	commandDescription        = "HTTP request/response testing tool."
-	commandOptionMaxLength    = 0
+	commandOptionMaxLength    = "28"
 	optionTargetUrl           = defineFlagValue("t", "target-host" /*            */, UsageRequiredPrefix+"Target url (sample https://**.**/** )" /* */, "").(*string)
 	optionHttpMethod          = defineFlagValue("m", "method" /*                 */, "HTTP method" /*                                               */, "GET").(*string)
 	optionBody                = defineFlagValue("b", "body" /*                   */, "Request body" /*                                              */, "").(*string)
@@ -62,11 +60,12 @@ var (
 )
 
 func init() {
-	formatUsage(commandDescription, &commandOptionMaxLength, new(bytes.Buffer))
+	flag.Usage = customUsage(os.Stdout, os.Args[0], commandDescription, commandOptionMaxLength)
 }
 
 // Build:
 // $ GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o /tmp/go-http-tester main.go
+// $ go build -ldflags="-s -w" -trimpath -o "/tmp/$(basename "PWD")" main.go
 func main() {
 	flag.Parse()
 	if *optionTargetUrl == "" {
@@ -90,7 +89,7 @@ func main() {
 		if a.Usage == UsageDummy {
 			return
 		}
-		fmt.Printf("--%-"+strconv.Itoa(commandOptionMaxLength)+"s %s\n", fmt.Sprintf("%s %v", a.Name, a.Value), strings.Trim(a.Usage, "\n"))
+		fmt.Printf("--%-"+commandOptionMaxLength+"s %s\n", fmt.Sprintf("%s %v", a.Name, a.Value), strings.Trim(a.Usage, "\n"))
 	})
 	fmt.Printf("\n\n")
 
@@ -269,37 +268,52 @@ func handleError(err error, prefixErrMessage string) {
 
 // Helper function for flag
 func defineFlagValue(short, long, description string, defaultValue any) (f any) {
-	switch defaultValue.(type) {
-	case string:
-		f = flag.String(short, "", UsageDummy)
-		flag.StringVar(f.(*string), long, defaultValue.(string), description)
-	case int:
-		f = flag.Int(short, 0, UsageDummy)
-		flag.IntVar(f.(*int), long, defaultValue.(int), description)
+	flagUsage := short + UsageDummy + description
+	defaultValueDescription := ""
+	switch v := defaultValue.(type) {
 	case bool:
 		f = flag.Bool(short, false, UsageDummy)
-		flag.BoolVar(f.(*bool), long, defaultValue.(bool), description)
+		flag.BoolVar(f.(*bool), long, v, flagUsage)
+	case string:
+		var d string
+		if d != defaultValue.(string) {
+			defaultValueDescription = fmt.Sprintf(" (default %s)", defaultValue.(string))
+		}
+		f = flag.String(short, "", UsageDummy)
+		flag.StringVar(f.(*string), long, v, flagUsage+defaultValueDescription)
+	case int:
+		var d int
+		if d != defaultValue.(int) {
+			defaultValueDescription = fmt.Sprintf(" (default %d)", defaultValue.(int))
+		}
+		f = flag.Int(short, 0, UsageDummy)
+		flag.IntVar(f.(*int), long, v, flagUsage+defaultValueDescription)
 	default:
 		panic("unsupported flag type")
 	}
 	return
 }
 
-func formatUsage(description string, maxLength *int, buffer *bytes.Buffer) {
-	// Get default flags usage
-	func() { flag.CommandLine.SetOutput(buffer); flag.Usage(); flag.CommandLine.SetOutput(os.Stderr) }()
-	re := regexp.MustCompile("(-\\S+)( *\\S*)+\n*\\s+" + UsageDummy + ".*\n*\\s+(-\\S+)( *\\S*)+\n\\s+(.+)")
-	usageFirst := strings.Replace(strings.Replace(strings.Split(buffer.String(), "\n")[0], ":", " [OPTIONS] [-h, --help]", -1), " of ", ": ", -1) + "\n\nDescription:\n  " + description + "\n\nOptions:\n"
-	usageOptions := re.FindAllString(buffer.String(), -1)
-	for _, v := range usageOptions {
-		*maxLength = max(*maxLength, len(re.ReplaceAllString(v, "$1, -$3$4")))
+func customUsage(output io.Writer, cmdName, description, fieldWidth string) func() {
+	return func() {
+		fmt.Fprintf(output, "Usage: %s [OPTIONS] [-h, --help]\n\n", cmdName)
+		fmt.Fprintf(output, "Description:\n  %s\n\n", description)
+		fmt.Fprintln(output, "Options:")
+
+		optionUsages := make([]string, 0)
+		flag.VisitAll(func(f *flag.Flag) {
+			if f.Usage == UsageDummy {
+				return
+			}
+			valueType := strings.Replace(strings.Replace(fmt.Sprintf("%T", f.Value), "*flag.", "", -1), "Value", "", -1)
+			format := "  -%-2s, --%-" + fieldWidth + "s %s\n"
+			short := strings.Split(f.Usage, UsageDummy)[0]
+			mainUsage := strings.Split(f.Usage, UsageDummy)[1]
+			optionUsages = append(optionUsages, fmt.Sprintf(format, short, f.Name+" "+valueType, mainUsage))
+		})
+		sort.SliceStable(optionUsages, func(i, j int) bool {
+			return strings.Count(optionUsages[i], UsageRequiredPrefix) > strings.Count(optionUsages[j], UsageRequiredPrefix)
+		})
+		fmt.Fprint(output, strings.Join(optionUsages, ""))
 	}
-	usageOptionsRep := make([]string, 0)
-	for _, v := range usageOptions {
-		usageOptionsRep = append(usageOptionsRep, fmt.Sprintf("%-6s%-"+strconv.Itoa(*maxLength)+"s", re.ReplaceAllString(v, "  $1,"), re.ReplaceAllString(v, "-$3$4"))+re.ReplaceAllString(v, "$5\n"))
-	}
-	sort.SliceStable(usageOptionsRep, func(i, j int) bool {
-		return strings.Count(usageOptionsRep[i], UsageRequiredPrefix) > strings.Count(usageOptionsRep[j], UsageRequiredPrefix)
-	})
-	flag.Usage = func() { _, _ = fmt.Fprintf(flag.CommandLine.Output(), usageFirst+strings.Join(usageOptionsRep, "")) }
 }
