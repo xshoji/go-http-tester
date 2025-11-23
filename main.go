@@ -89,7 +89,9 @@ func main() {
 		if a.Usage == UsageDummy {
 			return
 		}
-		fmt.Printf("--%-"+commandOptionMaxLength+"s %s\n", fmt.Sprintf("%s %v", a.Name, a.Value), strings.Split(a.Usage, UsageDummy)[1])
+		fmt.Printf("  -%-"+commandOptionMaxLength+"s %s\n",
+			fmt.Sprintf("%-2s, -%s %v", strings.Split(a.Usage, UsageDummy)[0], a.Name, a.Value),
+			strings.Trim(strings.Split(a.Usage, UsageDummy)[1], "\n"))
 	})
 	fmt.Printf("\n\n")
 
