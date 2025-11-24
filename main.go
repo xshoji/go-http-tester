@@ -269,31 +269,31 @@ func handleError(err error, prefixErrMessage string) {
 }
 
 // Helper function for flag
-func defineFlagValue(short, long, description string, defaultValue any) (f any) {
+func defineFlagValue[T comparable](short, long, description string, defaultValue T) any {
+	// 共通の Usage 組み立て（ゼロ値と比較）
 	flagUsage := short + UsageDummy + description
-	defaultValueDescription := ""
-	switch v := defaultValue.(type) {
-	case bool:
-		f = flag.Bool(short, false, UsageDummy)
-		flag.BoolVar(f.(*bool), long, v, flagUsage)
+	var zero T
+	longUsage := flagUsage
+	if defaultValue != zero {
+		longUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
+	}
+
+	switch v := any(defaultValue).(type) {
 	case string:
-		var d string
-		if d != defaultValue.(string) {
-			defaultValueDescription = fmt.Sprintf(" (default %s)", defaultValue.(string))
-		}
-		f = flag.String(short, "", UsageDummy)
-		flag.StringVar(f.(*string), long, v, flagUsage+defaultValueDescription)
+		f := flag.String(short, v, UsageDummy)
+		flag.StringVar(f, long, v, longUsage)
+		return f
 	case int:
-		var d int
-		if d != defaultValue.(int) {
-			defaultValueDescription = fmt.Sprintf(" (default %d)", defaultValue.(int))
-		}
-		f = flag.Int(short, 0, UsageDummy)
-		flag.IntVar(f.(*int), long, v, flagUsage+defaultValueDescription)
+		f := flag.Int(short, v, UsageDummy)
+		flag.IntVar(f, long, v, longUsage)
+		return f
+	case bool:
+		f := flag.Bool(short, v, UsageDummy)
+		flag.BoolVar(f, long, v, longUsage)
+		return f
 	default:
 		panic("unsupported flag type")
 	}
-	return
 }
 
 func customUsage(output io.Writer, cmdName, description, fieldWidth string) func() {
