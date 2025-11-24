@@ -33,3 +33,6 @@ output/
 !.gitkeep
 dist
 workspace/
+
+go-http-tester
+main
