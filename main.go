@@ -270,26 +270,24 @@ func handleError(err error, prefixErrMessage string) {
 
 // Helper function for flag
 func defineFlagValue[T comparable](short, long, description string, defaultValue T) any {
-	// 共通の Usage 組み立て（ゼロ値と比較）
 	flagUsage := short + UsageDummy + description
 	var zero T
-	longUsage := flagUsage
 	if defaultValue != zero {
-		longUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
+		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
 
 	switch v := any(defaultValue).(type) {
 	case string:
 		f := flag.String(short, v, UsageDummy)
-		flag.StringVar(f, long, v, longUsage)
+		flag.StringVar(f, long, v, flagUsage)
 		return f
 	case int:
 		f := flag.Int(short, v, UsageDummy)
-		flag.IntVar(f, long, v, longUsage)
+		flag.IntVar(f, long, v, flagUsage)
 		return f
 	case bool:
 		f := flag.Bool(short, v, UsageDummy)
-		flag.BoolVar(f, long, v, longUsage)
+		flag.BoolVar(f, long, v, flagUsage)
 		return f
 	default:
 		panic("unsupported flag type")
