@@ -87,6 +87,7 @@ func main() {
 	fmt.Printf("[ Environment variable ]\nSSLKEYLOGFILE: %s\n\n", sslKeyLogFile)
 	fmt.Printf("[ Command options ]\n")
 	fmt.Print(getOptionsUsage(commandOptionMaxLength, true))
+	fmt.Println("")
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *optionPrettyHttpMessage)
