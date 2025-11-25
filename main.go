@@ -15,6 +15,7 @@ import (
 	"net/http/httptrace"
 	"net/http/httputil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ import (
 )
 
 const (
-	UsageRequiredPrefix          = "\u001B[33m(REQ)\u001B[0m "
+	Req                          = "\u001B[33m(REQ)\u001B[0m "
 	UsageDummy                   = "########"
 	HttpContentTypeHeader        = "Content-Type"
 	ContextKeyPrettyHttpLog      = "ContextKeyLoggingPrettyHttpLog"
@@ -31,21 +32,21 @@ const (
 )
 
 var (
+	commandDescription     = "HTTP request/response testing tool."
+	commandOptionMaxLength = "28"
 	// Command options ( the -h, --help option is defined by default in the flag package )
-	commandDescription        = "HTTP request/response testing tool."
-	commandOptionMaxLength    = "28"
-	optionTargetUrl           = defineFlagValue("t", "target-host" /*            */, UsageRequiredPrefix+"Target url (sample https://**.**/** )" /* */, "", flag.String, flag.StringVar)
-	optionHttpMethod          = defineFlagValue("m", "method" /*                 */, "HTTP method" /*                                               */, "GET", flag.String, flag.StringVar)
-	optionBody                = defineFlagValue("b", "body" /*                   */, "Request body" /*                                              */, "", flag.String, flag.StringVar)
-	optionHostHeader          = defineFlagValue("ho", "host-header" /*           */, "Host header" /*                                               */, "", flag.String, flag.StringVar)
-	optionUuidHeaderName      = defineFlagValue("u", "uuid-header-name" /*       */, "Header name for uuid in the request" /*                       */, "", flag.String, flag.StringVar)
-	optionNetworkType         = defineFlagValue("n", "network-type" /*           */, "Network type [ values: \"tcp4\", \"tcp6\" ]" /*               */, "tcp4", flag.String, flag.StringVar)
-	optionLoopCount           = defineFlagValue("l", "loop-count" /*             */, "Loop count" /*                                                */, 3, flag.Int, flag.IntVar)
-	optionWaitMillSecond      = defineFlagValue("w", "wait-millisecond" /*       */, "Wait millisecond" /*                                          */, 1000, flag.Int, flag.IntVar)
-	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message" /*    */, "Print pretty http message" /*                                 */, false, flag.Bool, flag.BoolVar)
-	optionNoReadResponseBody  = defineFlagValue("no", "no-read-response-body" /* */, "Don't read response body (If this is enabled, http connection will be not reused between each request)", false, flag.Bool, flag.BoolVar)
-	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification" /*  */, "Skip tls verification" /*                                     */, false, flag.Bool, flag.BoolVar)
-	optionDisableHttp2        = defineFlagValue("d", "disable-http2" /*          */, "Disable HTTP/2" /*                                            */, false, flag.Bool, flag.BoolVar)
+	optionTargetUrl           = defineFlagValue("t", "target-host" /*           */, Req+"Target URL (e.g. https://domain/path)" /*                         */, "", flag.String, flag.StringVar)
+	optionHttpMethod          = defineFlagValue("m", "method" /*                */, "HTTP method" /*                                                       */, "GET", flag.String, flag.StringVar)
+	optionBody                = defineFlagValue("b", "body" /*                  */, "Request body" /*                                                      */, "", flag.String, flag.StringVar)
+	optionHostHeader          = defineFlagValue("H", "host-header" /*           */, "Host header" /*                                                       */, "", flag.String, flag.StringVar)
+	optionUuidHeaderName      = defineFlagValue("u", "uuid-header-name" /*      */, "Header name for uuid in the request" /*                               */, "", flag.String, flag.StringVar)
+	optionNetworkType         = defineFlagValue("n", "network-type" /*          */, "Network type [ values: \"tcp4\", \"tcp6\" ]" /*                       */, "tcp4", flag.String, flag.StringVar)
+	optionLoopCount           = defineFlagValue("l", "loop-count" /*            */, "Loop count" /*                                                        */, 3, flag.Int, flag.IntVar)
+	optionWaitMillSecond      = defineFlagValue("w", "wait-millisecond" /*      */, "Wait millisecond" /*                                                  */, 1000, flag.Int, flag.IntVar)
+	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message" /*   */, "Print pretty http message" /*                                         */, false, flag.Bool, flag.BoolVar)
+	optionNoReadResponseBody  = defineFlagValue("i", "ignore-response-body" /*  */, "Don't read response body (If this is enabled, http connection will be not reused between each request)", false, flag.Bool, flag.BoolVar)
+	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification" /* */, "Skip tls verification" /*                                             */, false, flag.Bool, flag.BoolVar)
+	optionHttp2Client         = defineFlagValue("g", "godebug-http2client" /*   */, "GODEBUG=http2client value (0 = disable HTTP/2, 1 = enable HTTP/2)" /* */, 1, flag.Int, flag.IntVar)
 
 	// HTTP Header templates
 	createHttpHeaderEmpty = func() map[string]string {
@@ -60,7 +61,7 @@ var (
 )
 
 func init() {
-	flag.Usage = customUsage(os.Stdout, os.Args[0], commandDescription, commandOptionMaxLength)
+	flag.Usage = customUsage(os.Stdout, commandDescription, commandOptionMaxLength)
 }
 
 // Build:
@@ -78,22 +79,14 @@ func main() {
 	client := http.Client{
 		Transport: CreateCustomTransport(
 			CreateTlsConfig(*optionSkipTlsVerification, sslKeyLogFile),
-			*optionDisableHttp2,
+			*optionHttp2Client,
 			*optionNetworkType,
 		),
 	}
 
 	fmt.Printf("[ Environment variable ]\nSSLKEYLOGFILE: %s\n\n", sslKeyLogFile)
 	fmt.Printf("[ Command options ]\n")
-	flag.VisitAll(func(a *flag.Flag) {
-		if a.Usage == UsageDummy {
-			return
-		}
-		fmt.Printf("  -%-"+commandOptionMaxLength+"s %s\n",
-			fmt.Sprintf("%-2s, -%s %v", strings.Split(a.Usage, UsageDummy)[0], a.Name, a.Value),
-			strings.Trim(strings.Split(a.Usage, UsageDummy)[1], "\n"))
-	})
-	fmt.Printf("\n\n")
+	fmt.Print(getOptionsUsage(commandOptionMaxLength, true))
 
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, ContextKeyPrettyHttpLog, *optionPrettyHttpMessage)
@@ -153,12 +146,12 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 // CreateCustomTransport
 // [golang custom http client] #go #golang #http #client #timeouts #dns #resolver
 // https://gist.github.com/Integralist/8a9cb8924f75ae42487fd877b03360e2?permalink_comment_id=4863513
-func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool, networkType string) *CustomTransport {
+func CreateCustomTransport(tlsConfig *tls.Config, http2Client int, networkType string) *CustomTransport {
 	customTr := &CustomTransport{Transport: http.DefaultTransport.(*http.Transport).Clone()}
 	if tlsConfig != nil {
 		customTr.TLSClientConfig = tlsConfig
 	}
-	if disableHttp2 {
+	if http2Client == 0 {
 		// hdr-HTTP_2 - http package - net/http - Go Packages: https://pkg.go.dev/net/http#hdr-HTTP_2
 		// disable HTTP/2 can do so by setting [Transport.TLSNextProto] (for clients) or [Server.TLSNextProto] (for servers) to a non-nil, empty map.
 		customTr.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
@@ -268,6 +261,10 @@ func handleError(err error, prefixErrMessage string) {
 	}
 }
 
+// =======================================
+// flag Utils
+// =======================================
+
 // Helper function for flag
 func defineFlagValue[T comparable](short, long, description string, defaultValue T, flagFunc func(name string, value T, usage string) *T, flagVarFunc func(p *T, name string, value T, usage string)) *T {
 	flagUsage := short + UsageDummy + description
@@ -276,31 +273,38 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
 
-	f := flagFunc(short, defaultValue, UsageDummy)
-	flagVarFunc(f, long, defaultValue, flagUsage)
+	f := flagFunc(long, defaultValue, flagUsage)
+	flagVarFunc(f, short, defaultValue, UsageDummy)
 	return f
 }
 
-func customUsage(output io.Writer, cmdName, description, fieldWidth string) func() {
+// Custom usage message
+func customUsage(output io.Writer, description, fieldWidth string) func() {
 	return func() {
-		fmt.Fprintf(output, "Usage: %s [OPTIONS] [-h, --help]\n\n", cmdName)
+		fmt.Fprintf(output, "Usage: %s [OPTIONS] [-h, --help]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }())
 		fmt.Fprintf(output, "Description:\n  %s\n\n", description)
-		fmt.Fprintln(output, "Options:")
-
-		optionUsages := make([]string, 0)
-		flag.VisitAll(func(f *flag.Flag) {
-			if f.Usage == UsageDummy {
-				return
-			}
-			valueType := strings.Replace(strings.Replace(fmt.Sprintf("%T", f.Value), "*flag.", "", -1), "Value", "", -1)
-			format := "  -%-2s, --%-" + fieldWidth + "s %s\n"
-			short := strings.Split(f.Usage, UsageDummy)[0]
-			mainUsage := strings.Split(f.Usage, UsageDummy)[1]
-			optionUsages = append(optionUsages, fmt.Sprintf(format, short, f.Name+" "+valueType, mainUsage))
-		})
-		sort.SliceStable(optionUsages, func(i, j int) bool {
-			return strings.Count(optionUsages[i], UsageRequiredPrefix) > strings.Count(optionUsages[j], UsageRequiredPrefix)
-		})
-		fmt.Fprint(output, strings.Join(optionUsages, ""))
+		fmt.Fprintf(output, "Options:\n%s", getOptionsUsage(fieldWidth, false))
 	}
+}
+
+// Get options usage message
+func getOptionsUsage(fieldWidth string, currentValue bool) string {
+	optionUsages := make([]string, 0)
+	flag.VisitAll(func(f *flag.Flag) {
+		if f.Usage == UsageDummy {
+			return
+		}
+		value := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(fmt.Sprintf("%T", f.Value), "*flag.", ""), "Value", ""), "bool", "")
+		if currentValue {
+			value = f.Value.String()
+		}
+		format := "  -%-1s, --%-" + fieldWidth + "s %s\n"
+		short := strings.Split(f.Usage, UsageDummy)[0]
+		mainUsage := strings.Split(f.Usage, UsageDummy)[1]
+		optionUsages = append(optionUsages, fmt.Sprintf(format, short, f.Name+" "+value, mainUsage))
+	})
+	sort.SliceStable(optionUsages, func(i, j int) bool {
+		return strings.Count(optionUsages[i], Req) > strings.Count(optionUsages[j], Req)
+	})
+	return strings.Join(optionUsages, "")
 }
