@@ -274,7 +274,7 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
 
-	commandOptionMaxLength = max(commandOptionMaxLength, len(fmt.Sprintf("%s", long))+8)
+	commandOptionMaxLength = max(commandOptionMaxLength, len(long)+8)
 	f := flagFunc(long, defaultValue, flagUsage)
 	flagVarFunc(f, short, defaultValue, UsageDummy)
 	return f
