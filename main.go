@@ -33,20 +33,20 @@ const (
 
 var (
 	commandDescription     = "HTTP request/response testing tool."
-	commandOptionMaxLength = "28"
+	commandOptionMaxLength = 0
 	// Command options ( the -h, --help option is defined by default in the flag package )
-	optionTargetUrl           = defineFlagValue("t", "target-host" /*           */, Req+"Target URL (e.g. https://domain/path)" /*                         */, "", flag.String, flag.StringVar)
-	optionHttpMethod          = defineFlagValue("m", "method" /*                */, "HTTP method" /*                                                       */, "GET", flag.String, flag.StringVar)
-	optionBody                = defineFlagValue("b", "body" /*                  */, "Request body" /*                                                      */, "", flag.String, flag.StringVar)
-	optionHostHeader          = defineFlagValue("H", "host-header" /*           */, "Host header" /*                                                       */, "", flag.String, flag.StringVar)
-	optionUuidHeaderName      = defineFlagValue("u", "uuid-header-name" /*      */, "Header name for uuid in the request" /*                               */, "", flag.String, flag.StringVar)
-	optionNetworkType         = defineFlagValue("n", "network-type" /*          */, "Network type [ values: \"tcp4\", \"tcp6\" ]" /*                       */, "tcp4", flag.String, flag.StringVar)
-	optionLoopCount           = defineFlagValue("l", "loop-count" /*            */, "Loop count" /*                                                        */, 3, flag.Int, flag.IntVar)
-	optionWaitMillSecond      = defineFlagValue("w", "wait-millisecond" /*      */, "Wait millisecond" /*                                                  */, 1000, flag.Int, flag.IntVar)
-	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message" /*   */, "Print pretty http message" /*                                         */, false, flag.Bool, flag.BoolVar)
+	optionTargetUrl           = defineFlagValue("t", "target-host" /*           */, Req+"Target URL (e.g. https://domain/path)" /*                         */, "" /*     */, flag.String, flag.StringVar)
+	optionHttpMethod          = defineFlagValue("m", "method" /*                */, "HTTP method" /*                                                       */, "GET" /*  */, flag.String, flag.StringVar)
+	optionBody                = defineFlagValue("b", "body" /*                  */, "Request body" /*                                                      */, "" /*     */, flag.String, flag.StringVar)
+	optionHostHeader          = defineFlagValue("H", "host-header" /*           */, "Host header" /*                                                       */, "" /*     */, flag.String, flag.StringVar)
+	optionUuidHeaderName      = defineFlagValue("u", "uuid-header-name" /*      */, "Header name for uuid in the request" /*                               */, "" /*     */, flag.String, flag.StringVar)
+	optionNetworkType         = defineFlagValue("n", "network-type" /*          */, "Network type [ values: \"tcp4\", \"tcp6\" ]" /*                       */, "tcp4" /* */, flag.String, flag.StringVar)
+	optionLoopCount           = defineFlagValue("l", "loop-count" /*            */, "Loop count" /*                                                        */, 3 /*      */, flag.Int, flag.IntVar)
+	optionWaitMillSecond      = defineFlagValue("w", "wait-millisecond" /*      */, "Wait millisecond" /*                                                  */, 1000 /*   */, flag.Int, flag.IntVar)
+	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message" /*   */, "Print pretty http message" /*                                         */, false /*  */, flag.Bool, flag.BoolVar)
 	optionNoReadResponseBody  = defineFlagValue("i", "ignore-response-body" /*  */, "Don't read response body (If this is enabled, http connection will be not reused between each request)", false, flag.Bool, flag.BoolVar)
-	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification" /* */, "Skip tls verification" /*                                             */, false, flag.Bool, flag.BoolVar)
-	optionHttp2Client         = defineFlagValue("g", "godebug-http2client" /*   */, "GODEBUG=http2client value (0 = disable HTTP/2, 1 = enable HTTP/2)" /* */, 1, flag.Int, flag.IntVar)
+	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification" /* */, "Skip tls verification" /*                                             */, false /*  */, flag.Bool, flag.BoolVar)
+	optionHttp2Client         = defineFlagValue("g", "godebug-http2client" /*   */, "GODEBUG=http2client value (0 = disable HTTP/2, 1 = enable HTTP/2)" /* */, 1 /*      */, flag.Int, flag.IntVar)
 
 	// HTTP Header templates
 	createHttpHeaderEmpty = func() map[string]string {
@@ -61,7 +61,7 @@ var (
 )
 
 func init() {
-	flag.Usage = customUsage(os.Stdout, commandDescription, commandOptionMaxLength)
+	flag.Usage = customUsage(os.Stdout, commandDescription, strconv.Itoa(commandOptionMaxLength))
 }
 
 // Build:
@@ -86,7 +86,7 @@ func main() {
 
 	fmt.Printf("[ Environment variable ]\nSSLKEYLOGFILE: %s\n\n", sslKeyLogFile)
 	fmt.Printf("[ Command options ]\n")
-	fmt.Print(getOptionsUsage(commandOptionMaxLength, true))
+	fmt.Print(getOptionsUsage(strconv.Itoa(commandOptionMaxLength), true))
 	fmt.Println("")
 
 	ctx := context.Background()
@@ -274,6 +274,7 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
 
+	commandOptionMaxLength = max(commandOptionMaxLength, len(fmt.Sprintf("%s", long))+8)
 	f := flagFunc(long, defaultValue, flagUsage)
 	flagVarFunc(f, short, defaultValue, UsageDummy)
 	return f
