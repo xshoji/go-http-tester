@@ -136,12 +136,14 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}))
 
 	fmt.Printf("Req. %s%s", time.Now().Format(TimeFormat), adjustMessage("\n"+string(httpMessageBytes)+"\n"))
+	start := time.Now()
 	resp, err := s.Transport.RoundTrip(r)
+	roundTripTookDuration := time.Since(start)
 	handleError(err, "s.Transport.RoundTrip(r)")
 	// Goのnet/httpのkeep-aliveで気をつけること - Carpe Diem: https://christina04.hatenablog.com/entry/go-keep-alive
 	respBytes, err := httputil.DumpResponse(resp, !r.Context().Value(ContextKeyNoReadResponseBody).(bool))
 	handleError(err, "httputil.DumpResponse(resp, true)")
-	fmt.Printf("Res. %s%s\n", time.Now().Format(TimeFormat), adjustMessage("\n"+string(respBytes)))
+	fmt.Printf("Res. %s , duration: %s  %s\n", time.Now().Format(TimeFormat), roundTripTookDuration, adjustMessage("\n"+string(respBytes)))
 
 	return resp, err
 }
