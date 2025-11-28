@@ -46,7 +46,7 @@ var (
 	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message" /*   */, "Print pretty http message" /*                                         */, false /*  */, flag.Bool, flag.BoolVar)
 	optionNoReadResponseBody  = defineFlagValue("i", "ignore-response-body" /*  */, "Don't read response body (If this is enabled, http connection will be not reused between each request)", false, flag.Bool, flag.BoolVar)
 	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification" /* */, "Skip tls verification" /*                                             */, false /*  */, flag.Bool, flag.BoolVar)
-	optionHttp2Client         = defineFlagValue("g", "godebug-http2client" /*   */, "GODEBUG=http2client value (0 = disable HTTP/2, 1 = enable HTTP/2)" /* */, 1 /*      */, flag.Int, flag.IntVar)
+	optionDisableHttp2        = defineFlagValue("d", "disable-http2" /*         */, "Disable HTTP/2 support" /*                                             */, false /*  */, flag.Bool, flag.BoolVar)
 
 	// HTTP Header templates
 	createHttpHeaderEmpty = func() map[string]string {
@@ -79,12 +79,14 @@ func main() {
 	client := http.Client{
 		Transport: CreateCustomTransport(
 			CreateTlsConfig(*optionSkipTlsVerification, sslKeyLogFile),
-			*optionHttp2Client,
+			*optionDisableHttp2,
 			*optionNetworkType,
 		),
 	}
 
-	fmt.Printf("[ Environment variable ]\nSSLKEYLOGFILE: %s\n\n", sslKeyLogFile)
+	fmt.Printf("[ Environment variable ]\n")
+	fmt.Printf("  SSLKEYLOGFILE: %s\n", sslKeyLogFile)
+	fmt.Println("")
 	fmt.Printf("[ Command options ]\n")
 	fmt.Print(getOptionsUsage(strconv.Itoa(commandOptionMaxLength), true))
 	fmt.Println("")
@@ -147,12 +149,12 @@ func (s *CustomTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 // CreateCustomTransport
 // [golang custom http client] #go #golang #http #client #timeouts #dns #resolver
 // https://gist.github.com/Integralist/8a9cb8924f75ae42487fd877b03360e2?permalink_comment_id=4863513
-func CreateCustomTransport(tlsConfig *tls.Config, http2Client int, networkType string) *CustomTransport {
+func CreateCustomTransport(tlsConfig *tls.Config, disableHttp2 bool, networkType string) *CustomTransport {
 	customTr := &CustomTransport{Transport: http.DefaultTransport.(*http.Transport).Clone()}
 	if tlsConfig != nil {
 		customTr.TLSClientConfig = tlsConfig
 	}
-	if http2Client == 0 {
+	if disableHttp2 {
 		// hdr-HTTP_2 - http package - net/http - Go Packages: https://pkg.go.dev/net/http#hdr-HTTP_2
 		// disable HTTP/2 can do so by setting [Transport.TLSNextProto] (for clients) or [Server.TLSNextProto] (for servers) to a non-nil, empty map.
 		customTr.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
