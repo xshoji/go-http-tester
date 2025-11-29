@@ -32,8 +32,9 @@ const (
 )
 
 var (
-	commandDescription     = "HTTP request/response testing tool."
-	commandOptionMaxLength = 0
+	commandDescription           = "HTTP request/response testing tool."
+	commandOptionMaxLength       = 0  // Auto-adjusted in defineFlagValue
+	commandRequiredOptionExample = "" // Auto-adjusted in defineFlagValue
 	// Command options ( the -h, --help option is defined by default in the flag package )
 	optionTargetUrl           = defineFlagValue("t", "target-host" /*           */, Req+"Target URL (e.g. https://domain/path)" /*                         */, "" /*     */, flag.String, flag.StringVar)
 	optionHttpMethod          = defineFlagValue("m", "method" /*                */, "HTTP method" /*                                                       */, "GET" /*  */, flag.String, flag.StringVar)
@@ -277,7 +278,9 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 	if defaultValue != zero {
 		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
 	}
-
+	if strings.Contains(description, Req) {
+		commandRequiredOptionExample = commandRequiredOptionExample + fmt.Sprintf("--%s %T ", long, defaultValue)
+	}
 	commandOptionMaxLength = max(commandOptionMaxLength, len(long)+8)
 	f := flagFunc(long, defaultValue, flagUsage)
 	flagVarFunc(f, short, defaultValue, UsageDummy)
@@ -287,7 +290,7 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 // Custom usage message
 func customUsage(output io.Writer, description, fieldWidth string) func() {
 	return func() {
-		fmt.Fprintf(output, "Usage: %s [OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }())
+		fmt.Fprintf(output, "Usage: %s %s[OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }(), commandRequiredOptionExample)
 		fmt.Fprintf(output, "Description:\n  %s\n\n", description)
 		fmt.Fprintf(output, "Options:\n%s", getOptionsUsage(fieldWidth, false))
 	}

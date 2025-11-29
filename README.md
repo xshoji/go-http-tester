@@ -6,7 +6,7 @@ Http testing tool implemented by golang.
 
 ```
 $ ./go-http-tester
-Usage: go-http-tester [OPTIONS]
+Usage: go-http-tester --target-host string [OPTIONS]
 
 Description:
   HTTP request/response testing tool.
