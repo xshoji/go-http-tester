@@ -12,7 +12,7 @@ Description:
   HTTP request/response testing tool.
 
 Options:
-  -t, --target-host string            (REQ) Target URL (e.g. https://domain/path)
+  -t, --target-host string            (required) Target URL (e.g. https://domain/path)
   -b, --body string                   Request body
   -d, --disable-http2                 Disable HTTP/2 support
   -H, --host-header string            Host header
