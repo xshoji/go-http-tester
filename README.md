@@ -4,7 +4,7 @@ Http testing tool implemented by golang.
 
 # Usage
 
-```
+```plaintext
 $ ./go-http-tester
 Usage: go-http-tester --target-host <string> [OPTIONS]
 
