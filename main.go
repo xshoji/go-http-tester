@@ -62,7 +62,7 @@ var (
 )
 
 func init() {
-	flag.Usage = customUsage(os.Stdout, commandDescription, strconv.Itoa(commandOptionMaxLength))
+	flag.Usage = customUsage(commandDescription)
 }
 
 // Build:
@@ -89,7 +89,7 @@ func main() {
 	fmt.Printf("  SSLKEYLOGFILE: %s\n", sslKeyLogFile)
 	fmt.Println("")
 	fmt.Printf("[ Command options ]\n")
-	fmt.Print(getOptionsUsage(strconv.Itoa(commandOptionMaxLength), true))
+	fmt.Print(getOptionsUsage(true))
 	fmt.Println("")
 
 	ctx := context.Background()
@@ -288,32 +288,43 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 }
 
 // Custom usage message
-func customUsage(output io.Writer, description, fieldWidth string) func() {
+func customUsage(description string) func() {
 	return func() {
-		fmt.Fprintf(output, "Usage: %s %s[OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }(), commandRequiredOptionExample)
-		fmt.Fprintf(output, "Description:\n  %s\n\n", description)
-		fmt.Fprintf(output, "Options:\n%s", getOptionsUsage(fieldWidth, false))
+		optionsUsage, requiredOptionExample := getOptionsUsage(false)
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s %s[OPTIONS]\n\n", func() string { e, _ := os.Executable(); return filepath.Base(e) }(), requiredOptionExample)
+		fmt.Fprintf(flag.CommandLine.Output(), "Description:\n  %s\n\n", description)
+		fmt.Fprintf(flag.CommandLine.Output(), "Options:\n%s", optionsUsage)
 	}
 }
 
 // Get options usage message
-func getOptionsUsage(fieldWidth string, currentValue bool) string {
-	optionUsages := make([]string, 0)
+func getOptionsUsage(currentValue bool) (string, string) {
+	requiredOptionExample := ""
+	optionNameWidth := 0
+	usages := make([]string, 0)
+	getType := func(v string) string {
+		return strings.NewReplacer("*flag.boolValue", "", "*flag.", "<", "Value", ">").Replace(v)
+	}
+	flag.VisitAll(func(f *flag.Flag) {
+		optionNameWidth = max(optionNameWidth, len(fmt.Sprintf("%s %s", f.Name, getType(fmt.Sprintf("%T", f.Value))))+4)
+	})
 	flag.VisitAll(func(f *flag.Flag) {
 		if f.Usage == UsageDummy {
 			return
 		}
-		value := strings.NewReplacer("*flag.boolValue", "", "*flag.", "<", "Value", ">").Replace(fmt.Sprintf("%T", f.Value))
+		value := getType(fmt.Sprintf("%T", f.Value))
 		if currentValue {
 			value = f.Value.String()
 		}
-		format := "  -%-1s, --%-" + fieldWidth + "s %s\n"
 		short := strings.Split(f.Usage, UsageDummy)[0]
 		mainUsage := strings.Split(f.Usage, UsageDummy)[1]
-		optionUsages = append(optionUsages, fmt.Sprintf(format, short, f.Name+" "+value, mainUsage))
+		if strings.Contains(mainUsage, Req) {
+			requiredOptionExample += fmt.Sprintf("--%s %s ", f.Name, value)
+		}
+		usages = append(usages, fmt.Sprintf("  -%-1s, --%-"+strconv.Itoa(optionNameWidth)+"s %s\n", short, f.Name+" "+value, mainUsage))
 	})
-	sort.SliceStable(optionUsages, func(i, j int) bool {
-		return strings.Count(optionUsages[i], Req) > strings.Count(optionUsages[j], Req)
+	sort.SliceStable(usages, func(i, j int) bool {
+		return strings.Count(usages[i], Req) > strings.Count(usages[j], Req)
 	})
-	return strings.Join(optionUsages, "")
+	return strings.Join(usages, ""), requiredOptionExample
 }
