@@ -32,9 +32,7 @@ const (
 )
 
 var (
-	commandDescription           = "HTTP request/response testing tool."
-	commandOptionMaxLength       = 0  // Auto-adjusted in defineFlagValue
-	commandRequiredOptionExample = "" // Auto-adjusted in defineFlagValue
+	commandDescription = "HTTP request/response testing tool."
 	// Command options ( the -h, --help option is defined by default in the flag package )
 	optionTargetUrl           = defineFlagValue("t", "target-host" /*           */, Req+"Target URL (e.g. https://domain/path)" /*      */, "" /*     */, flag.String, flag.StringVar)
 	optionHttpMethod          = defineFlagValue("m", "method" /*                */, "HTTP method" /*                                    */, "GET" /*  */, flag.String, flag.StringVar)
@@ -45,7 +43,7 @@ var (
 	optionLoopCount           = defineFlagValue("l", "loop-count" /*            */, "Loop count" /*                                     */, 3 /*      */, flag.Int, flag.IntVar)
 	optionWaitMillSecond      = defineFlagValue("w", "wait-millisecond" /*      */, "Wait millisecond" /*                               */, 1000 /*   */, flag.Int, flag.IntVar)
 	optionPrettyHttpMessage   = defineFlagValue("p", "pretty-http-message" /*   */, "Print pretty http message" /*                      */, false /*  */, flag.Bool, flag.BoolVar)
-	optionNoReadResponseBody  = defineFlagValue("i", "ignore-response-body" /*  */, "Don't read response body (If this is enabled, http connection will be not reused between each request)", false, flag.Bool, flag.BoolVar)
+	optionNoReadResponseBody  = defineFlagValue("i", "ignore-response-body" /*  */, "Don't read response body (if this is enabled, http connection will be not reused between each request)", false, flag.Bool, flag.BoolVar)
 	optionSkipTlsVerification = defineFlagValue("s", "skip-tls-verification" /* */, "Skip tls verification" /*                          */, false /*  */, flag.Bool, flag.BoolVar)
 	optionDisableHttp2        = defineFlagValue("d", "disable-http2" /*         */, "Disable HTTP/2 support" /*                         */, false /*  */, flag.Bool, flag.BoolVar)
 
@@ -276,12 +274,8 @@ func defineFlagValue[T comparable](short, long, description string, defaultValue
 	flagUsage := short + UsageDummy + description
 	var zero T
 	if defaultValue != zero {
-		flagUsage = flagUsage + fmt.Sprintf(" (default %v)", defaultValue)
+		flagUsage += fmt.Sprintf(" (default %v)", defaultValue)
 	}
-	if strings.Contains(description, Req) {
-		commandRequiredOptionExample = commandRequiredOptionExample + fmt.Sprintf("--%s <%T> ", long, defaultValue)
-	}
-	commandOptionMaxLength = max(commandOptionMaxLength, len(long)+10)
 	f := flagFunc(long, defaultValue, flagUsage)
 	flagVarFunc(f, short, defaultValue, UsageDummy)
 	return f
